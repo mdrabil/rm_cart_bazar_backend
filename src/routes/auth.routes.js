@@ -6,6 +6,8 @@ const router = express.Router();
 // Register (SUPER_ADMIN only)
 router.post("/register", registerUser);
 
+
+
 // Login
 router.post("/login", loginUser);
 

@@ -58,14 +58,14 @@ const orderListSchema = Joi.object({
 });
 
 // ----------------- Sequence Generator -----------------
-const getNextSequence = async (name) => {
-  const counter = await Counter.findByIdAndUpdate(
-    name,
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true, setDefaultsOnInsert: true }
-  );
-  return counter.seq;
-};
+// const getNextSequence = async (name) => {
+//   const counter = await Counter.findByIdAndUpdate(
+//     name,
+//     { $inc: { seq: 1 } },
+//     { new: true, upsert: true, setDefaultsOnInsert: true }
+//   );
+//   return counter.seq;
+// };
 
 // ================== CREATE ORDER ==================
 export const createOrder = async (req, res) => {
@@ -113,8 +113,8 @@ export const createOrder = async (req, res) => {
     }
 
     const payableAmount = totalAmount + gstAmount - discountAmount;
-    const seq = await getNextSequence("ORDER");
-    const rmOrderId = generateRMId("ORD", seq);
+   
+    const rmOrderId = generateRMId("ORD", "ORDER");
 
     const order = await Order.create({
   ...value,

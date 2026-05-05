@@ -29,6 +29,7 @@ import enquiryRoutes from "../routes/enquiry.routes.js";
 import BannerRoutes from "../routes/banner.routes.js";
 import AnalyticsRoutes from "../routes/analytics.routes.js";
 import paymentRoutes from "../routes/payment.routes.js";
+import singleRoutes from "../routes/admin/single.routes.js";
 
 
 
@@ -63,6 +64,7 @@ router.use("/admin/enquiries", enquiryRoutes);
 
 // Now all /admin/... routes automatically have req.user + req.allowedStores
 router.use("/admin/users", adminUserRoutes);
+router.use("/admin/single", singleRoutes);
 router.use("/admin/analytics", AnalyticsRoutes);
 router.use("/admin/modules",moduleRoutes );
 router.use("/admin/stores", storeRoutes);
