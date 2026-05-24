@@ -56,6 +56,16 @@ export const generateProductSlug = async (name) => {
   return slug;
 };
 
+export const generateLayerId = async () => {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: "LAYER" },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  return `LYR-${counter.seq.toString().padStart(6, "0")}`;
+};
+
 
 // const getNextSequence = async (name) => {
 //   const counter = await Counter.findByIdAndUpdate(

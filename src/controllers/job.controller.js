@@ -247,6 +247,8 @@ export const applyJob = async (req, res) => {
     // ======================
     // BASIC VALIDATION
     // ======================
+  console.log("file:", req.file);
+console.log("body:", req.body);
 
     if (!jobId || !name || !email || !phone) {
       return res.status(400).json({

@@ -1101,44 +1101,44 @@ export const getSingleProductDetails = async (req, res) => {
         : 0;
 
     // ================= FORMAT RESPONSE =================
-    const formattedProduct = {
-      id: product._id,
-      name: product.name,
-      slug: product.slug,
-      description: product.description,
+    // const formattedProduct = {
+    //   id: product._id,
+    //   name: product.name,
+    //   slug: product.slug,
+    //   description: product.description,
 
-      category: product.category,
-      subCategory: product.subCategory,
-      store: product.store,
+    //   category: product.category,
+    //   subCategory: product.subCategory,
+    //   store: product.store,
 
-      label: product.label,
-      variants: product.variants || [],
-      attributes: product.attributes || [],
+    //   label: product.label,
+    //   variants: product.variants || [],
+    //   attributes: product.attributes || [],
 
-      gstPercent: product.gstPercent,
-      status: product.status,
+    //   gstPercent: product.gstPercent,
+    //   status: product.status,
 
-      images: product.images?.map((img) => img.url) || [],
-      thumbnails: product.thumbnails?.map((img) => img.url) || [],
+    //   images: product.images?.map((img) => img.url) || [],
+    //   thumbnails: product.thumbnails?.map((img) => img.url) || [],
 
-      averageRating,
-      totalReviews,
+    //   averageRating,
+    //   totalReviews,
 
-      createdAt: product.createdAt,
+    //   createdAt: product.createdAt,
 
-      // ✅ SEO
-      meta: {
-        title: product.name,
-        description:
-          product.description?.slice(0, 150) ||
-          `Buy ${product.name} at best price`,
-      },
-    };
+    //   // ✅ SEO
+    //   meta: {
+    //     title: product.name,
+    //     description:
+    //       product.description?.slice(0, 150) ||
+    //       `Buy ${product.name} at best price`,
+    //   },
+    // };
 
     // ================= RESPONSE =================
     return res.status(200).json({
       success: true,
-      product: formattedProduct,
+      product:product,
       reviews,
     });
   } catch (error) {

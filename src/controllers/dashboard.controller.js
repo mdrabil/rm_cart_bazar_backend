@@ -1,62 +1,24 @@
+import { SIDEBAR_COUNT_CONFIG } from "../utils/sidebarCountConfig.js";
 
-export const getDashboard = async (
-  req,
-  res
-) => {
+export const getSidebarCounts = async (req, res) => {
   try {
-    const filters = req.query;
+    const entries = Object.entries(SIDEBAR_COUNT_CONFIG);
 
-    // 🔥 SAB PARALLEL
-    const [
-      orders,
-      customers,
-      stores,
-      users,
-      staff,
-    ] = await Promise.all([
-      getOrderAnalyticsService(
-        req.user,
-        filters
-      ),
+    const countPromises = entries.map(async ([key, value]) => {
+      const total = await value.model.countDocuments(value.filter || {});
 
-      getCustomerAnalyticsService(
-        req.user,
-        filters
-      ),
+      return [key, total];
+    });
 
-      getStoreAnalyticsService(
-        req.user,
-        filters
-      ),
+    const resolved = await Promise.all(countPromises);
 
-      getUserAnalyticsService(
-        req.user,
-        filters
-      ),
+    const counts = Object.fromEntries(resolved);
 
-      getStoreStaffAnalyticsService(
-        req.user,
-        filters
-      ),
-    ]);
-
-    return res.json({
+    return res.status(200).json({
       success: true,
-
-      dashboard: {
-        orders,
-        customers,
-        stores,
-        users,
-        staff,
-      },
+      counts,
     });
   } catch (error) {
-    console.log(
-      "Dashboard Error:",
-      error
-    );
-
     return res.status(500).json({
       success: false,
       message: error.message,

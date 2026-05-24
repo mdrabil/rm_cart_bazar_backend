@@ -4,7 +4,7 @@ import { authMiddleware } from "../../middlewares/auth.middleware.js";
 
 import {
   createProduct,
-  updateProduct,
+
   getProductById,
   getAllProducts,
   deleteProduct,
@@ -13,30 +13,101 @@ import {
 
 import { checkPermission } from "../../middlewares/checkPermission.middleware.js";
 import { MODULE_KEY } from "../../constants/enums.js";
-import { arrayImagesThumbnailsUpload } from "../../middlewares/upload.middleware.js";
+import { arrayImagesThumbnailsUpload, upload } from "../../middlewares/upload.middleware.js";
+import { createNewProduct, updateProduct } from "../../controllers/new-product.controller.js";
 
 const router = express.Router();
 
-// 🔹 Create product with images
+// // 🔹 Create product with images
+// router.post(
+//   "/create",
+//   authMiddleware,
+//  checkPermission(MODULE_KEY.PRODUCTS,'create'),
+ 
+//     // arrayImagesThumbnailsUpload("products", 10, 10),
+//     arrayImagesThumbnailsUpload(10, 10),
+//   createProduct
+// );
+
+// routes/product.routes.js
+
+
+// =========================
+// MULTIPLE FILES
+// =========================
+
+const productUpload = upload.fields([
+  {
+    name: "images",
+    maxCount: 10,
+  },
+
+  {
+    name: "thumbnails",
+    maxCount: 10,
+  },
+
+  {
+    name: "layerImages",
+    maxCount: 50,
+  },
+
+  {
+    name: "areaImages",
+    maxCount: 20,
+  },
+]);
+
+
 router.post(
   "/create",
+
   authMiddleware,
- checkPermission(MODULE_KEY.PRODUCTS,'create'),
- 
-    // arrayImagesThumbnailsUpload("products", 10, 10),
-    arrayImagesThumbnailsUpload(10, 10),
-  createProduct
+
+  checkPermission(
+    MODULE_KEY.PRODUCTS,
+    "create"
+  ),
+
+  productUpload,
+
+  createNewProduct
 );
 
-// 🔹 Update product + images
+
+
+
+
 router.put(
   "/:productId",
-  authMiddleware,
- checkPermission(MODULE_KEY.PRODUCTS,'update'),
 
-    arrayImagesThumbnailsUpload(10, 10),
+authMiddleware,
+  upload.fields([
+    {
+      name: "images",
+      maxCount: 10,
+    },
+
+    {
+      name: "thumbnails",
+      maxCount: 10,
+    },
+
+    {
+      name: "areaImages",
+      maxCount: 10,
+    },
+
+    {
+      name: "layerImages",
+      maxCount: 20,
+    },
+  ]),
+
   updateProduct
 );
+
+
 
 
 router.patch(

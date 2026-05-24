@@ -231,8 +231,7 @@ export const createStore = async (req, res) => {
       });
     }
 
-    rmStoreId 
-
+    
     // ✅ create store
     const store = await Store.create({
       ...value,

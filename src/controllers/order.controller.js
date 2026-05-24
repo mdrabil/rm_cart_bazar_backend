@@ -406,6 +406,7 @@ export const getAllOrders = async (req, res) => {
       endDate,
       deliveryStartDate,
       deliveryEndDate,
+      statusMode,
 
       // 🔥 NEW SORT PARAMS
       sortBy = "createdAt",
@@ -438,7 +439,17 @@ if (store) {
     : store;
 }
 
-    if (status) filter.status = status;
+    // if (status) filter.status = status;
+
+if (status && status !== "all") {
+  if (statusMode === "exclude") {
+    filter.status = { $ne: status };
+  } else {
+    filter.status = status;
+  }
+}
+
+
     if (customer) filter.customer = customer;
     if (category) filter.category = category;
 
@@ -506,6 +517,7 @@ if (store) {
       "payableAmount",
       "discountAmount",
       "totalAmount",
+       "deliveryMeta.distanceKm"
     ];
 
     const finalSortBy = allowedSortFields.includes(sortBy)
