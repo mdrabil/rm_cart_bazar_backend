@@ -10,6 +10,9 @@ import Customer from "../../models/Customer.js";
 import { getDistanceKm } from "../../utils/getDistanceKm.js";
 import StoreModel from "../../models/Store.model.js";
 
+
+
+
 // export const placeOrderController = async (req, res) => {
 //   if (!req.user) {
 //     return res.status(401).json({
@@ -23,8 +26,9 @@ import StoreModel from "../../models/Store.model.js";
 
 //   try {
 //     const customerId = req.user._id;
-//     const { paymentMethod, deliveryAddress, notes, deliverySlot, couponCode,deliveryDate } =req.body;
+//     let { paymentMethod, deliveryAddress, notes, deliverySlot, couponCode, deliveryDate,layer } = req.body;
 
+//     // Fetch cart with product data
 //     const cart = await Cart.findOne({ customerId })
 //       .populate("items.productId")
 //       .session(session);
@@ -37,7 +41,6 @@ import StoreModel from "../../models/Store.model.js";
 //     let gstAmount = 0;
 //     let discountAmount = 0;
 //     let storeId = null;
-
 //     const orderItems = [];
 
 //     // ================= LOOP CART ITEMS =================
@@ -46,20 +49,18 @@ import StoreModel from "../../models/Store.model.js";
 //       if (!product) throw new Error("Product not found");
 
 //       const variant = product.variants.id(item.variantId);
-//       if (!variant || !variant.isActive)
-//         throw new Error("Variant not available");
+//       if (!variant || !variant.isActive) throw new Error("Variant not available");
 
 //       const price = Number(variant.sellingPrice) || 0;
 //       const qty = Number(item.qty) || 0;
 //       const gstPercent = Number(product.gstPercent) || 0;
 
-//       if (price <= 0 || qty <= 0)
-//         throw new Error("Invalid price or quantity");
-
-//       if (variant.stockQty < qty)
-//         throw new Error(`${product.name} (${variant.value}) out of stock`);
+//       if (price <= 0 || qty <= 0) throw new Error("Invalid price or quantity");
+//       if (variant.stockQty < qty) throw new Error(`${product.name} (${variant.value}) out of stock`);
 
 //       if (!storeId) storeId = product.store;
+
+
 
 //       const itemTotal = price * qty;
 //       const itemGST = (itemTotal * gstPercent) / 100;
@@ -82,15 +83,11 @@ import StoreModel from "../../models/Store.model.js";
 //           "variants._id": variant._id,
 //           "variants.stockQty": { $gte: qty }
 //         },
-//         {
-//           $inc: { "variants.$.stockQty": -qty }
-//         },
+//         { $inc: { "variants.$.stockQty": -qty } },
 //         { session }
 //       );
 
-//       if (stockUpdate.modifiedCount === 0) {
-//         throw new Error("Stock update failed");
-//       }
+//       if (stockUpdate.modifiedCount === 0) throw new Error("Stock update failed");
 //     }
 
 //     totalAmount = Number(totalAmount.toFixed(2));
@@ -108,32 +105,27 @@ import StoreModel from "../../models/Store.model.js";
 //       if (!coupon) throw new Error("Invalid coupon");
 
 //       const now = new Date();
+//       if (now < coupon.startDate || now > coupon.endDate) throw new Error("Coupon expired");
 
-//       if (now < coupon.startDate || now > coupon.endDate)
-//         throw new Error("Coupon expired");
-
-//       if (totalAmount < coupon.minOrderAmount)
-//         throw new Error("Minimum order amount not reached");
+//       if (totalAmount < coupon.minOrderAmount) throw new Error("Minimum order amount not reached");
 
 //       const alreadyUsed = await CouponUsage.findOne({
 //         coupon: coupon._id,
 //         user: customerId
 //       }).session(session);
 
-//       if (alreadyUsed)
-//         throw new Error("You already used this coupon");
+//       if (alreadyUsed) throw new Error("You already used this coupon");
 
-//       if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit)
-//         throw new Error("Coupon usage limit reached");
+//       if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) throw new Error("Coupon usage limit reached");
 
-//       if (coupon.type === "PERCENTAGE") {
+//       if (coupon.type === "PERCENT") {
 //         discountAmount = (totalAmount * coupon.value) / 100;
-//         if (coupon.maxDiscountAmount) {
-//           discountAmount = Math.min(
-//             discountAmount,
-//             coupon.maxDiscountAmount
-//           );
-//         }
+//           if (coupon.maxDiscountAmount && coupon.maxDiscountAmount > 0) {
+//         discountAmount = Math.min(discountAmount, coupon.maxDiscountAmount);
+//     }
+
+
+        
 //       } else {
 //         discountAmount = coupon.value;
 //       }
@@ -154,114 +146,150 @@ import StoreModel from "../../models/Store.model.js";
 //         { new: true, session }
 //       );
 
-//       if (!updatedCoupon)
-//         throw new Error("Coupon usage limit reached");
+//       if (!updatedCoupon) throw new Error("Coupon usage limit reached");
 
-//       await CouponUsage.create(
-//         [
-//           {
-//             coupon: coupon._id,
-//             user: customerId
-//           }
-//         ],
-//         { session }
-//       );
-
+//       await CouponUsage.create([{ coupon: coupon._id, user: customerId }], { session });
 //       appliedCoupon = coupon.code;
 //     }
 
-//     const payableAmount = Number(
-//       (totalAmount + gstAmount - discountAmount).toFixed(2)
-//     );
+//     const payableAmount = Number((totalAmount + gstAmount - discountAmount).toFixed(2));
 
 //     // Payment mapping
-//     const map = {
-//       cash: "COD",
-//       cod: "COD",
-//       online: "ONLINE",
-//       upi: "UPI",
-//       wallet: "WALLET"
-//     };
+//     const map = { cash: "COD", cod: "COD", online: "ONLINE", upi: "UPI", wallet: "WALLET" };
+//     const finalPaymentMethod = map[paymentMethod?.toLowerCase()] || "COD";
 
-//     const finalPaymentMethod =
-//       map[paymentMethod?.toLowerCase()] || "COD";
+//     const rmOrderId = await generateRMId("ORD", "ORDER");
+//     const transactionId = generateTransactionId() || null;
 
-//           const rmOrderId = await generateRMId("ORD","ORDER")
-//     const transactionId = generateTransactionId() || null
-
+//     // Default delivery date if not provided
 //     if (!deliveryDate) {
-//   const today = new Date();
-//   const defaultDelivery = new Date();
-//   defaultDelivery.setDate(today.getDate() + 7); // 7 days from today
-//   deliveryDate = defaultDelivery;
+//       const today = new Date();
+//       const defaultDelivery = new Date();
+//       defaultDelivery.setDate(today.getDate() + 7);
+//       deliveryDate = defaultDelivery;
+//     }
+
+  
+
+//     let isNewAddress = true;
+
+// const existingAddress = req.user.addresses.find(addr =>
+//   addr.fullAddress === deliveryAddress.fullAddress &&
+//   addr.addressLine === deliveryAddress.addressLine &&
+//   addr.mobile === deliveryAddress.mobile &&
+//   addr.city === deliveryAddress.city &&
+//   addr.state === deliveryAddress.state &&
+//   addr.pincode === deliveryAddress.pincode &&
+//   addr.type === deliveryAddress.type
+// );
+
+// if (existingAddress) {
+//   isNewAddress = false;
 // }
 
-// // ================= DELIVERY ADDRESS =================
-// if (deliveryAddress) {
-//   // Check if this address already exists for the user
-//   const existingAddress = req.user.addresses.find(addr =>
-//     addr.fullAddress === deliveryAddress.fullAddress &&
-//     addr.addressLine === deliveryAddress.addressLine &&
-//     addr.mobile === deliveryAddress.mobile &&
-//     addr.city === deliveryAddress.city &&
-//     addr.state === deliveryAddress.state &&
-//     addr.pincode === deliveryAddress.pincode &&
-//     addr.type === deliveryAddress.type
-//   );
-
-//   if (!existingAddress) {
-//     // Add new address to customer
-//     await Customer.updateOne(
-//       { _id: customerId },
-//       { $push: { addresses: deliveryAddress } },
-//       { session }
-//     );
-//   }
-// }
-
-//     // ================= CREATE ORDER =================
-//     const order = await Order.create(
-//       [
-//         {
-//           customerId,
-//           store: storeId,
-//           rmOrderId,
-//           transactionId,
-
-//           items: orderItems,
-//           totalAmount,
-//           gstAmount,
-//           discountAmount,
-//           payableAmount,
-//           couponCode: appliedCoupon,
-//           paymentMethod: finalPaymentMethod,
-//           notes,
-//           deliverySlot,
-//           deliveryAddress,
-//           status: ORDER_STATUS.PLACED,
-//           deliveryDate
+// if (isNewAddress) {
+//   await Customer.updateOne(
+//     { _id: customerId },
+//     {
+//       $push: {
+//         addresses: {
+//           ...deliveryAddress,
+//           location: {
+//             type: "Point",
+//             coordinates: [
+//               deliveryAddress.longitude,
+//               deliveryAddress.latitude
+//             ]
+//           }
 //         }
-//       ],
-//       { session }
-//     );
+//       }
+//     },
+//     { session }
+//   );
+// }
 
+// const nearestStore = await StoreModel.findOne({
+//   "address.location": {
+//     $near: {
+//       $geometry: {
+//         type: "Point",
+//         coordinates: [
+//           deliveryAddress.longitude,
+//           deliveryAddress.latitude
+//         ]
+//       },
+//       $maxDistance: 20000000
+//     }
+//   }
+// });
 
-//     await Cart.updateOne(
-//       { customerId },
-//       { $set: { items: [] } },
-//       { session }
-//     );
+// console.log("get store",nearestStore)
 
+// const storeLat = nearestStore.address.location.coordinates[1];
+// const storeLng = nearestStore.address.location.coordinates[0];
+
+// const distanceKm = getDistanceKm(
+//   deliveryAddress.latitude,
+//   deliveryAddress.longitude,
+//   storeLat,
+//   storeLng
+// );
+
+// console.log("get the distacne",distanceKm)
+//     // ================= CREATE ORDER =================
+// const order = await Order.create([
+//   {
+//     rmOrderId,
+//     customerId,
+//     store: nearestStore._id,
+
+//     items: orderItems,
+//     totalAmount,
+//     gstAmount,
+//     discountAmount,
+//     payableAmount,
+
+//     deliveryAddress: {
+//       ...deliveryAddress,
+//       location: {
+//         type: "Point",
+//         coordinates: [
+//           deliveryAddress.longitude,
+//           deliveryAddress.latitude
+//         ]
+//       }
+//     },
+
+//     deliveryMeta: {
+//       distanceKm: Number(distanceKm.toFixed(2)),
+//       assignedStoreType: isNewAddress ? "AUTO_NEW_ADDRESS" : "AUTO_EXISTING"
+//     },
+
+//     paymentMethod: finalPaymentMethod,
+//     notes,
+//     deliverySlot,
+//     status: ORDER_STATUS.PLACED,
+//     deliveryDate
+//   }
+// ], { session });
+
+//     // Clear cart
+//     await Cart.updateOne({ customerId }, { $set: { items: [] } }, { session });
+
+//     // Commit transaction
 //     await session.commitTransaction();
 //     session.endSession();
+
+//     // Fetch updated user for frontend / Redux
+//     const updatedUser = await Customer.findById(customerId).lean();
 
 //     return res.status(201).json({
 //       success: true,
 //       message: "Order placed successfully",
-//       txnId:transactionId,
-//       orderId:order[0]?._id,
+//       txnId: transactionId,
+//       orderId: order[0]?._id,
 //       order: order[0],
-//       user:cus
+//       user: updatedUser
 //     });
 
 //   } catch (error) {
@@ -274,7 +302,6 @@ import StoreModel from "../../models/Store.model.js";
 //     });
 //   }
 // };
-
 
 export const placeOrderController = async (req, res) => {
   if (!req.user) {
@@ -289,9 +316,17 @@ export const placeOrderController = async (req, res) => {
 
   try {
     const customerId = req.user._id;
-    let { paymentMethod, deliveryAddress, notes, deliverySlot, couponCode, deliveryDate } = req.body;
 
-    // Fetch cart with product data
+    let {
+      paymentMethod,
+      deliveryAddress,
+      notes,
+      deliverySlot,
+      couponCode,
+      deliveryDate
+    } = req.body;
+
+    // ================= FETCH CART =================
     const cart = await Cart.findOne({ customerId })
       .populate("items.productId")
       .session(session);
@@ -304,26 +339,38 @@ export const placeOrderController = async (req, res) => {
     let gstAmount = 0;
     let discountAmount = 0;
     let storeId = null;
+
     const orderItems = [];
 
     // ================= LOOP CART ITEMS =================
     for (const item of cart.items) {
       const product = item.productId;
-      if (!product) throw new Error("Product not found");
+
+      if (!product) {
+        throw new Error("Product not found");
+      }
 
       const variant = product.variants.id(item.variantId);
-      if (!variant || !variant.isActive) throw new Error("Variant not available");
+
+      if (!variant || !variant.isActive) {
+        throw new Error("Variant not available");
+      }
 
       const price = Number(variant.sellingPrice) || 0;
       const qty = Number(item.qty) || 0;
       const gstPercent = Number(product.gstPercent) || 0;
 
-      if (price <= 0 || qty <= 0) throw new Error("Invalid price or quantity");
-      if (variant.stockQty < qty) throw new Error(`${product.name} (${variant.value}) out of stock`);
+      if (price <= 0 || qty <= 0) {
+        throw new Error("Invalid price or quantity");
+      }
 
-      if (!storeId) storeId = product.store;
+      if (variant.stockQty < qty) {
+        throw new Error(`${product.name} (${variant.value}) out of stock`);
+      }
 
-
+      if (!storeId) {
+        storeId = product.store;
+      }
 
       const itemTotal = price * qty;
       const itemGST = (itemTotal * gstPercent) / 100;
@@ -331,26 +378,52 @@ export const placeOrderController = async (req, res) => {
       totalAmount += itemTotal;
       gstAmount += itemGST;
 
+      // ================= CUSTOMIZE =================
+      const layer = item.layer
+        ? {
+            ...item.layer.toObject?.(),
+            isCustomized: !!item.layer?.text?.trim()
+          }
+        : null;
+
+      // ================= PUSH ORDER ITEM =================
       orderItems.push({
+        productId: product._id,
+
+        variantId: variant._id,
+
         productName: product.name,
+
         variantLabel: variant.value,
+
         sellingPrice: price,
+
         qty,
-        gstPercent
+
+        gstPercent,
+
+        // ✅ CUSTOMIZE SAVE
+        layer
       });
 
-      // 🔥 Atomic variant stock reduce
+      // ================= STOCK UPDATE =================
       const stockUpdate = await Product.updateOne(
         {
           _id: product._id,
           "variants._id": variant._id,
           "variants.stockQty": { $gte: qty }
         },
-        { $inc: { "variants.$.stockQty": -qty } },
+        {
+          $inc: {
+            "variants.$.stockQty": -qty
+          }
+        },
         { session }
       );
 
-      if (stockUpdate.modifiedCount === 0) throw new Error("Stock update failed");
+      if (stockUpdate.modifiedCount === 0) {
+        throw new Error("Stock update failed");
+      }
     }
 
     totalAmount = Number(totalAmount.toFixed(2));
@@ -365,35 +438,54 @@ export const placeOrderController = async (req, res) => {
         status: "ACTIVE"
       }).session(session);
 
-      if (!coupon) throw new Error("Invalid coupon");
+      if (!coupon) {
+        throw new Error("Invalid coupon");
+      }
 
       const now = new Date();
-      if (now < coupon.startDate || now > coupon.endDate) throw new Error("Coupon expired");
 
-      if (totalAmount < coupon.minOrderAmount) throw new Error("Minimum order amount not reached");
+      if (now < coupon.startDate || now > coupon.endDate) {
+        throw new Error("Coupon expired");
+      }
+
+      if (totalAmount < coupon.minOrderAmount) {
+        throw new Error("Minimum order amount not reached");
+      }
 
       const alreadyUsed = await CouponUsage.findOne({
         coupon: coupon._id,
         user: customerId
       }).session(session);
 
-      if (alreadyUsed) throw new Error("You already used this coupon");
+      if (alreadyUsed) {
+        throw new Error("You already used this coupon");
+      }
 
-      if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) throw new Error("Coupon usage limit reached");
+      if (
+        coupon.usageLimit &&
+        coupon.usedCount >= coupon.usageLimit
+      ) {
+        throw new Error("Coupon usage limit reached");
+      }
 
       if (coupon.type === "PERCENT") {
         discountAmount = (totalAmount * coupon.value) / 100;
-          if (coupon.maxDiscountAmount && coupon.maxDiscountAmount > 0) {
-        discountAmount = Math.min(discountAmount, coupon.maxDiscountAmount);
-    }
 
-
-        
+        if (
+          coupon.maxDiscountAmount &&
+          coupon.maxDiscountAmount > 0
+        ) {
+          discountAmount = Math.min(
+            discountAmount,
+            coupon.maxDiscountAmount
+          );
+        }
       } else {
         discountAmount = coupon.value;
       }
 
       discountAmount = Math.min(discountAmount, totalAmount);
+
       discountAmount = Number(discountAmount.toFixed(2));
 
       const updatedCoupon = await Coupon.findOneAndUpdate(
@@ -405,181 +497,251 @@ export const placeOrderController = async (req, res) => {
             { usedCount: { $lt: coupon.usageLimit } }
           ]
         },
-        { $inc: { usedCount: 1 } },
-        { new: true, session }
+        {
+          $inc: {
+            usedCount: 1
+          }
+        },
+        {
+          new: true,
+          session
+        }
       );
 
-      if (!updatedCoupon) throw new Error("Coupon usage limit reached");
+      if (!updatedCoupon) {
+        throw new Error("Coupon usage limit reached");
+      }
 
-      await CouponUsage.create([{ coupon: coupon._id, user: customerId }], { session });
+      await CouponUsage.create(
+        [
+          {
+            coupon: coupon._id,
+            user: customerId
+          }
+        ],
+        { session }
+      );
+
       appliedCoupon = coupon.code;
     }
 
-    const payableAmount = Number((totalAmount + gstAmount - discountAmount).toFixed(2));
+    // ================= FINAL PAYABLE =================
+    const payableAmount = Number(
+      (
+        totalAmount +
+        gstAmount -
+        discountAmount
+      ).toFixed(2)
+    );
 
-    // Payment mapping
-    const map = { cash: "COD", cod: "COD", online: "ONLINE", upi: "UPI", wallet: "WALLET" };
-    const finalPaymentMethod = map[paymentMethod?.toLowerCase()] || "COD";
+    // ================= PAYMENT =================
+    const map = {
+      cash: "COD",
+      cod: "COD",
+      online: "ONLINE",
+      upi: "UPI",
+      wallet: "WALLET"
+    };
+
+    const finalPaymentMethod =
+      map[paymentMethod?.toLowerCase()] || "COD";
 
     const rmOrderId = await generateRMId("ORD", "ORDER");
+
     const transactionId = generateTransactionId() || null;
 
-    // Default delivery date if not provided
+    // ================= DELIVERY DATE =================
     if (!deliveryDate) {
       const today = new Date();
+
       const defaultDelivery = new Date();
+
       defaultDelivery.setDate(today.getDate() + 7);
+
       deliveryDate = defaultDelivery;
     }
 
-    // ================= DELIVERY ADDRESS =================
-    // if (deliveryAddress) {
-    //   const existingAddress = req.user.addresses.find(addr =>
-    //     addr.fullAddress === deliveryAddress.fullAddress &&
-    //     addr.addressLine === deliveryAddress.addressLine &&
-    //     addr.mobile === deliveryAddress.mobile &&
-    //     addr.city === deliveryAddress.city &&
-    //     addr.state === deliveryAddress.state &&
-    //     addr.pincode === deliveryAddress.pincode &&
-    //     addr.type === deliveryAddress.type
-    //   );
-
-    //   if (!existingAddress) {
-    //     await Customer.updateOne(
-    //       { _id: customerId },
-    //       { $push: { addresses: deliveryAddress } },
-    //       { session }
-    //     );
-    //   }
-    // }
-
+    // ================= SAVE ADDRESS =================
     let isNewAddress = true;
 
-const existingAddress = req.user.addresses.find(addr =>
-  addr.fullAddress === deliveryAddress.fullAddress &&
-  addr.addressLine === deliveryAddress.addressLine &&
-  addr.mobile === deliveryAddress.mobile &&
-  addr.city === deliveryAddress.city &&
-  addr.state === deliveryAddress.state &&
-  addr.pincode === deliveryAddress.pincode &&
-  addr.type === deliveryAddress.type
-);
+    const existingAddress = req.user.addresses.find(
+      (addr) =>
+        addr.fullAddress === deliveryAddress.fullAddress &&
+        addr.addressLine === deliveryAddress.addressLine &&
+        addr.mobile === deliveryAddress.mobile &&
+        addr.city === deliveryAddress.city &&
+        addr.state === deliveryAddress.state &&
+        addr.pincode === deliveryAddress.pincode &&
+        addr.type === deliveryAddress.type
+    );
 
-if (existingAddress) {
-  isNewAddress = false;
-}
+    if (existingAddress) {
+      isNewAddress = false;
+    }
 
-if (isNewAddress) {
-  await Customer.updateOne(
-    { _id: customerId },
-    {
-      $push: {
-        addresses: {
-          ...deliveryAddress,
-          location: {
+    if (isNewAddress) {
+      await Customer.updateOne(
+        { _id: customerId },
+        {
+          $push: {
+            addresses: {
+              ...deliveryAddress,
+
+              location: {
+                type: "Point",
+
+                coordinates: [
+                  deliveryAddress.longitude,
+                  deliveryAddress.latitude
+                ]
+              }
+            }
+          }
+        },
+        { session }
+      );
+    }
+
+    // ================= FIND NEAREST STORE =================
+    const nearestStore = await StoreModel.findOne({
+      "address.location": {
+        $near: {
+          $geometry: {
             type: "Point",
+
             coordinates: [
               deliveryAddress.longitude,
               deliveryAddress.latitude
             ]
-          }
+          },
+
+          $maxDistance: 20000000
         }
       }
-    },
-    { session }
-  );
-}
+    });
 
-const nearestStore = await StoreModel.findOne({
-  "address.location": {
-    $near: {
-      $geometry: {
-        type: "Point",
-        coordinates: [
-          deliveryAddress.longitude,
-          deliveryAddress.latitude
-        ]
-      },
-      $maxDistance: 20000000
-    }
-  }
-});
+    const storeLat =
+      nearestStore.address.location.coordinates[1];
 
-console.log("get store",nearestStore)
+    const storeLng =
+      nearestStore.address.location.coordinates[0];
 
-const storeLat = nearestStore.address.location.coordinates[1];
-const storeLng = nearestStore.address.location.coordinates[0];
+    const distanceKm = getDistanceKm(
+      deliveryAddress.latitude,
+      deliveryAddress.longitude,
+      storeLat,
+      storeLng
+    );
 
-const distanceKm = getDistanceKm(
-  deliveryAddress.latitude,
-  deliveryAddress.longitude,
-  storeLat,
-  storeLng
-);
-
-console.log("get the distacne",distanceKm)
     // ================= CREATE ORDER =================
-const order = await Order.create([
-  {
-    rmOrderId,
-    customerId,
-    store: nearestStore._id,
+    const order = await Order.create(
+      [
+        {
+          rmOrderId,
 
-    items: orderItems,
-    totalAmount,
-    gstAmount,
-    discountAmount,
-    payableAmount,
+          customerId,
 
-    deliveryAddress: {
-      ...deliveryAddress,
-      location: {
-        type: "Point",
-        coordinates: [
-          deliveryAddress.longitude,
-          deliveryAddress.latitude
-        ]
-      }
-    },
+          store: nearestStore._id,
 
-    deliveryMeta: {
-      distanceKm: Number(distanceKm.toFixed(2)),
-      assignedStoreType: isNewAddress ? "AUTO_NEW_ADDRESS" : "AUTO_EXISTING"
-    },
+          items: orderItems,
 
-    paymentMethod: finalPaymentMethod,
-    notes,
-    deliverySlot,
-    status: ORDER_STATUS.PLACED,
-    deliveryDate
-  }
-], { session });
+          totalAmount,
 
-    // Clear cart
-    await Cart.updateOne({ customerId }, { $set: { items: [] } }, { session });
+          gstAmount,
 
-    // Commit transaction
+          discountAmount,
+
+          payableAmount,
+
+          couponCode: appliedCoupon,
+
+          paymentMethod: finalPaymentMethod,
+
+          paymentStatus:
+            finalPaymentMethod === "COD"
+              ? "PENDING"
+              : "PAID",
+
+          transactionId,
+
+          notes,
+
+          deliverySlot,
+
+          deliveryDate,
+
+          status: ORDER_STATUS.PLACED,
+
+          deliveryAddress: {
+            ...deliveryAddress,
+
+            location: {
+              type: "Point",
+
+              coordinates: [
+                deliveryAddress.longitude,
+                deliveryAddress.latitude
+              ]
+            }
+          },
+
+          deliveryMeta: {
+            distanceKm: Number(
+              distanceKm.toFixed(2)
+            ),
+
+            assignedStoreType: isNewAddress
+              ? "AUTO_NEW_ADDRESS"
+              : "AUTO_EXISTING"
+          }
+        }
+      ],
+      { session }
+    );
+
+    // ================= CLEAR CART =================
+    await Cart.updateOne(
+      { customerId },
+      {
+        $set: {
+          items: []
+        }
+      },
+      { session }
+    );
+
+    // ================= COMMIT =================
     await session.commitTransaction();
+
     session.endSession();
 
-    // Fetch updated user for frontend / Redux
-    const updatedUser = await Customer.findById(customerId).lean();
+    // ================= UPDATED USER =================
+    const updatedUser = await Customer.findById(
+      customerId
+    ).lean();
 
     return res.status(201).json({
       success: true,
+
       message: "Order placed successfully",
+
       txnId: transactionId,
+
       orderId: order[0]?._id,
+
       order: order[0],
+
       user: updatedUser
     });
 
   } catch (error) {
     await session.abortTransaction();
+
     session.endSession();
 
     return res.status(400).json({
       success: false,
+
       message: error.message || "Order failed"
     });
   }

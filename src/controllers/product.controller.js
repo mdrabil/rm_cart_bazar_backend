@@ -20,7 +20,6 @@ const createProductSchema = Joi.object({
       mrp: Joi.number().positive(),
       sellingPrice: Joi.number().positive().required(),
       stockQty: Joi.number().integer().min(0),
-      isActive: Joi.boolean()
     })
   ).min(1).required(),
   attributes: Joi.object().optional(),
@@ -55,65 +54,7 @@ averageRating: Joi.number().min(0).max(5).optional(),
 }).min(1);
 
 
-// 🔹 CREATE PRODUCT
 
-
-// ------------------- CREATE PRODUCT -------------------
-// export const createProduct = async (req, res) => {
-//   try {
-
-
-//     const { error, value } = createProductSchema.validate(req.body);
-
-
-
-//     if (error) return res.status(400).json({ message: error.details[0].message });
-
-//     // 🔹 Store access check
-//     const store = await Store.findById(value.store);
-//     if (!store) return res.status(404).json({ message: "Store not found" });
-
-//     if (!req.user.roles.includes(USER_ROLE.SUPER_ADMIN)) {
-//       if (req.user.roles.includes(USER_ROLE.VENDOR) && store.owner.toString() !== req.user._id.toString())
-//         return res.status(403).json({ message: "Access denied" });
-
-//       if ([USER_ROLE.STORE_MANAGER, USER_ROLE.CHEF].some(r => req.user.roles.includes(r))) {
-//         if (req.staffRoleStoreId.toString() !== store._id.toString()) {
-//           return res.status(403).json({ message: "Access denied" });
-//         }
-//       }
-//     }
-
-//     // 🔹 Duplicate product per store
-//     const duplicate = await Product.findOne({ store: value.store, name: value.name });
-//     if (duplicate) return res.status(400).json({ message: "Product with same name already exists in this store" });
-
-//     // 🔹 Handle images & thumbnails upload
-//     let imageUrls = [];
-//     let thumbnailUrls = [];
-
-//     if (req.files && req.files.length > 0) {
-//       for (const file of req.files) {
-//         const uploaded = await cloudinary.uploader.upload(file.path, { folder: "products" });
-
-//         // distinguish image / thumbnail by fieldname
-//         if (file.fieldname === "images") imageUrls.push(uploaded.secure_url);
-//         if (file.fieldname === "thumbnails") thumbnailUrls.push(uploaded.secure_url);
-//       }
-//     }
-
-//     value.images = imageUrls;
-//     value.thumbnails = thumbnailUrls;
-//     value.createdBy = req.user._id;
-
-//     const product = await Product.create(value);
-
-//     res.status(201).json({ success: true, product });
-//   } catch (err) {
-//     console.error("createProduct:", err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
 
 
 export const createProduct = async (req, res) => {
@@ -138,9 +79,10 @@ if(!req.user.roles.includes(USER_ROLE.SUPER_ADMIN)) {
       }
     }
     // 🔥 Parse variants (FormData case)
-    if (req.body.variants && typeof req.body.variants === "string") {
-      req.body.variants = JSON.parse(req.body.variants);
-    }
+if (req.body.variants && typeof req.body.variants === "string") {
+  req.body.variants = JSON.parse(req.body.variants);
+}
+
 
     const { error, value } = createProductSchema.validate(req.body);
     if (error) return res.status(400).json({ message: error.details[0].message });

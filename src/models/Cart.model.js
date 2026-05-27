@@ -1,76 +1,127 @@
-// import mongoose from "mongoose";
-
-// const cartItemSchema = new mongoose.Schema(
-//   {
-//     product: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: "Product",
-//       required: true,
-//     },
-
-//     variantId: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       required: true,
-//     },
-
-//     qty: {
-//       type: Number,
-//       default: 1,
-//       min: 1,
-//     },
-//   },
-//   { _id: false }
-// );
-
-// const cartSchema = new mongoose.Schema(
-//   {
-//     customer: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: "Customer",
-//       required: true,
-//       unique: true,
-//       index: true,
-//     },
-
-//     items: [cartItemSchema],
-//   },
-//   { timestamps: true }
-// );
-
-// cartSchema.index({ customer: 1 });
-
-// export default mongoose.model("Cart", cartSchema);
+// models/Cart.model.js
 
 import mongoose from "mongoose";
+import { PRODUCT_AREAS } from "../constants/enums.js";
 
-// ─── Customization sub-schemas ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// LAYER SCHEMA
+// ─────────────────────────────────────────────
 
-const customizationLayerSchema = new mongoose.Schema(
+const layerSchema = new mongoose.Schema(
   {
-    id: { type: String },
-    type: { type: String, enum: ["text", "image"] },
-    area: { type: String },
-    // text layer fields
-    text: { type: String, default: "" },
-    color: { type: String, default: "#000000" },
-    // image layer fields
-    imageUrl: { type: String, default: "" },
-  },
-  { _id: false }
-);
+    id: {
+      type: String,
+      index: true,
+    },
 
-const customizationSchema = new mongoose.Schema(
-  {
-    areas: [{ type: String }],
-    layers: {
-      type: Map,
-      of: [customizationLayerSchema],
+    type: {
+      type: String,
+      enum: ["text"],
+      default: "text",
+      required: true,
+    },
+
+    area: {
+      type: String,
+      enum: PRODUCT_AREAS,
+      required: true,
+    },
+
+    text: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    textMaxLength: {
+      type: Number,
+      default: 30,
+      min: 1,
+      max: 50,
+    },
+
+    fontSizePercent: {
+      type: Number,
+      default: 4,
+      min: 0.5,
+      max: 10,
+    },
+
+    textWidthPercent: {
+      type: Number,
+      default: 80,
+      min: 0,
+      max: 100,
+    },
+
+    color: {
+      type: String,
+      default: "#ffffff",
+    },
+
+    fontFamily: {
+      type: String,
+      default: "Arial",
+    },
+
+    bold: {
+      type: Boolean,
+      default: false,
+    },
+
+    curved: {
+      type: Boolean,
+      default: false,
+    },
+
+    curveRadius: {
+      type: Number,
+      default: 120,
+      min: 40,
+      max: 300,
+    },
+
+    xPercent: {
+      type: Number,
+      default: 50,
+      min: 0,
+      max: 100,
+    },
+
+    yPercent: {
+      type: Number,
+      default: 50,
+      min: 0,
+      max: 100,
+    },
+
+    rotation: {
+      type: Number,
+      default: 0,
+      min: -180,
+      max: 180,
+    },
+
+    image: {
+      url: {
+        type: String,
+        default: null,
+      },
+
+      public_id: {
+        type: String,
+        default: null,
+      },
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
-// ─── Cart item schema ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// CART ITEM
+// ─────────────────────────────────────────────
 
 const cartItemSchema = new mongoose.Schema(
   {
@@ -79,25 +130,29 @@ const cartItemSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
+
     variantId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
     },
+
     qty: {
       type: Number,
       default: 1,
       min: 1,
     },
-    // Optional: stores customer's customization choices
-    customization: {
-      type: customizationSchema,
+
+    // ✅ DIRECT LAYER
+    layer: {
+      type: layerSchema,
       default: null,
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
-// ─── Cart schema ───────────────────────────────────────────────────────────
 
 const cartSchema = new mongoose.Schema(
   {
@@ -108,9 +163,12 @@ const cartSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+
     items: [cartItemSchema],
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 cartSchema.index({ customerId: 1 });

@@ -69,7 +69,6 @@ export const createPaymentOrderController = async (req, res) => {
       gstAmount += itemGST;
     }
 
-    // ================= COUPON VALIDATION =================
 
     if (couponCode) {
 
@@ -322,6 +321,15 @@ export const verifyPaymentController = async (req, res) => {
       totalAmount += itemTotal;
       gstAmount += itemGST;
 
+
+      const layer = item.layer
+  ? {
+      ...item.layer.toObject?.(),
+      isCustomized: !!item.layer?.text?.trim()
+    }
+  : null;
+
+
       orderItems.push({
         productName: product.name,
         variantLabel: variant.value,
@@ -330,6 +338,8 @@ export const verifyPaymentController = async (req, res) => {
         qty: item.qty,
         gstPercent:
           product.gstPercent,
+            // ✅ CUSTOMIZATION
+  layer
       });
 
       const stockUpdate =

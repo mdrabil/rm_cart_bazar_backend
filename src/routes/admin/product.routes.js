@@ -51,13 +51,7 @@ const productUpload = upload.fields([
     name: "layerImages",
     maxCount: 50,
   },
-
-  {
-    name: "areaImages",
-    maxCount: 20,
-  },
 ]);
-
 
 router.post(
   "/create",

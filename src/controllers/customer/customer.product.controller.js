@@ -591,7 +591,7 @@ if (sortBy) {
       ProductModel.find(filter)
         .select(`
           _id rmProductId name slug description 
-          variants gstPercent status images createdAt label totalReviews averageRating
+          variants gstPercent status images createdAt label totalReviews averageRating customization
         `)
         .lean()
         .sort(sortObj)
@@ -611,10 +611,14 @@ if (sortBy) {
       subCategory: p.subCategory,
       variants: p.variants,
       gstPercent: p.gstPercent,
+      customization:p.customization,
       status: p.status,
 reviews: p.totalReviews || 0,
 averageRating: p.averageRating || 0,
-      images: p.images?.map((img) => img.url),
+      // images: p.images?.map((img) => img.url),
+      images: p.images?.map((img) => ({
+  url: img.url,
+})) || [],
       createdAt: p.createdAt
     }));
 

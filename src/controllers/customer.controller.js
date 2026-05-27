@@ -533,75 +533,6 @@ const orderListSchema = Joi.object({
 //   }
 // };
 
-export const createCustomer = async (req, res) => {
-  const session = await mongoose.startSession();
-  let transactionStarted = false;
-
-  try {
-    session.startTransaction();
-    transactionStarted = true;
-
-    const { error, value } = customerValidator.validate(req.body);
-    if (error) {
-      if (transactionStarted) await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ success: false, message: error.message });
-    }
-
-    const { name, mobile, email, password, guestCart = [] } = value;
-
-    const existing = await Customer.findOne(
-      { $or: [{ mobile }, { email }] },
-      null,
-      { session, lean: true } // lean makes query faster
-    );
-
-    if (existing) {
-      if (transactionStarted) await session.abortTransaction();
-      session.endSession();
-      return res.status(409).json({ success: false, message: "Customer already exists" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-    const rmCustomerId = await generateRMId("RMCU", "CUSTOMER");
-
-    // Create customer & cart in batch
-    const [customer] = await Customer.create(
-      [{ fullName: name, mobile, email, password: hashedPassword, rmCustomerId, role: "CUSTOMER" }],
-      { session }
-    );
-
-    const cartItems = guestCart.map(gItem => ({
-      productId: gItem.productId,
-      variantId: gItem.variantId,
-      qty: gItem.qty,
-    }));
-
-    const [cart] = await CartModel.create([{ customerId: customer._id, items: cartItems }], { session });
-
-    await session.commitTransaction();
-    transactionStarted = false;
-    session.endSession();
-
-    // Populate only needed fields
-    await cart.populate({ path: "items.productId", select: "name images variants gstPercent slug" });
-
-    const tokens = generateToken({ id: customer._id, role: "CUSTOMER" });
-
-    return res.status(201).json({
-      success: true,
-      message: "Customer created successfully",
-      tokens,
-      user: customer,
-      items: formatCart(cart),
-    });
-  } catch (err) {
-    if (transactionStarted) await session.abortTransaction();
-    session.endSession();
-    console.error("Create Customer Error:", err);
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
-  }
-};
 
 // export const customerLogin = async (req, res) => {
 //   try {
@@ -701,81 +632,365 @@ export const createCustomer = async (req, res) => {
 // };
 
 
+export const createCustomer = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+
+    const { error, value } =
+      customerValidator.validate(req.body);
+
+    if (error) {
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    const {
+      name,
+      mobile,
+      email,
+      password,
+      guestCart = [],
+    } = value;
+
+    // =========================
+    // CHECK EXISTING
+    // =========================
+
+    const existing = await Customer.findOne(
+      {
+        $or: [{ mobile }, { email }],
+      },
+      null,
+      { session }
+    );
+
+    if (existing) {
+      await session.abortTransaction();
+
+      return res.status(409).json({
+        success: false,
+        message:
+          "Customer already exists",
+      });
+    }
+
+    // =========================
+    // HASH PASSWORD
+    // =========================
+
+    const hashedPassword =
+      await bcrypt.hash(password, 12);
+
+    const rmCustomerId =
+      await generateRMId(
+        "RMCU",
+        "CUSTOMER"
+      );
+
+    // =========================
+    // CREATE CUSTOMER
+    // =========================
+
+    const [customer] =
+      await Customer.create(
+        [
+          {
+            fullName: name,
+
+            mobile,
+
+            email,
+
+            password: hashedPassword,
+
+            rmCustomerId,
+
+            role: "CUSTOMER",
+          },
+        ],
+        { session }
+      );
+
+    // =========================
+    // PREPARE CART ITEMS
+    // =========================
+
+    const cartItems = guestCart.map(
+      (gItem) => ({
+        productId: gItem.productId,
+
+        variantId: gItem.variantId,
+
+        qty: gItem.qty || 1,
+
+        layer:
+          gItem.layer || null,
+      })
+    );
+
+    // =========================
+    // CREATE CART
+    // =========================
+
+    const [cart] =
+      await CartModel.create(
+        [
+          {
+            customerId: customer._id,
+
+            items: cartItems,
+          },
+        ],
+        { session }
+      );
+
+    // =========================
+    // COMMIT
+    // =========================
+
+    await session.commitTransaction();
+
+    // =========================
+    // POPULATE
+    // =========================
+
+    await cart.populate({
+      path: "items.productId",
+
+      select:
+        "name images variants gstPercent slug customization",
+    });
+
+    // =========================
+    // TOKEN
+    // =========================
+
+    const tokens = generateToken({
+      id: customer._id,
+
+      role: "CUSTOMER",
+    });
+
+    return res.status(201).json({
+      success: true,
+
+      message:
+        "Customer created successfully",
+
+      tokens,
+
+      user: customer,
+
+      items: formatCart(cart),
+    });
+  } catch (err) {
+    await session.abortTransaction();
+
+    console.error(
+      "Create Customer Error:",
+      err
+    );
+
+    return res.status(500).json({
+      success: false,
+
+      message:
+        "Internal Server Error",
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
 export const customerLogin = async (req, res) => {
   try {
-    const { mobile, email, password, guestCart = [] } = req.body;
+    const {
+      mobile,
+      email,
+      password,
+      guestCart = [],
+    } = req.body;
+
+    // ─────────────────────────
+    // VALIDATION
+    // ─────────────────────────
 
     if ((!mobile && !email) || !password) {
       return res.status(400).json({
         success: false,
-        message: "Mobile or Email and Password required",
+        message:
+          "Mobile or Email and Password required",
       });
     }
 
-    // 🔹 Build query
+    // ─────────────────────────
+    // FIND CUSTOMER
+    // ─────────────────────────
+
     const query = [];
+
     if (mobile) query.push({ mobile });
+
     if (email) query.push({ email });
 
-    // 🔹 Fetch customer with password
-    const customer = await Customer.findOne({ $or: query }).select("+password").lean();
-    if (!customer)
-      return res.status(404).json({ success: false, message: "Customer not found" });
+    const customer = await Customer.findOne({
+      $or: query,
+    }).select("+password");
 
-    // 🔹 Validate password
-    const isMatch = await bcrypt.compare(password, customer.password);
-    if (!isMatch)
-      return res.status(401).json({ success: false, message: "Invalid password" });
-
-    if (customer.isBlocked) {
-  return res.status(403).json({
-    success: false,
-    message: "🚫 Your account has been temporarily blocked by the admin. Please contact support for assistance."
-  });
-}
-
-    // 🔹 Fetch or create cart
-    let cart = await CartModel.findOne({ customerId: customer._id });
-    if (!cart) {
-      cart = await CartModel.create({ customerId: customer._id, items: [] });
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
     }
 
-    // 🔹 Merge guest cart efficiently using Map
-    const cartMap = new Map(cart.items.map(item => [item.productId.toString() + '_' + item.variantId.toString(), item]));
+    // ─────────────────────────
+    // PASSWORD CHECK
+    // ─────────────────────────
 
-    guestCart.forEach(gItem => {
-      const key = gItem.productId + '_' + gItem.variantId;
-      if (cartMap.has(key)) {
-        cartMap.get(key).qty += gItem.qty;
-      } else {
+    const isMatch = await bcrypt.compare(
+      password,
+      customer.password
+    );
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password",
+      });
+    }
+
+    // ─────────────────────────
+    // BLOCK CHECK
+    // ─────────────────────────
+
+    if (customer.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "🚫 Your account has been temporarily blocked by the admin. Please contact support for assistance.",
+      });
+    }
+
+    // ─────────────────────────
+    // GET / CREATE CART
+    // ─────────────────────────
+
+    let cart = await CartModel.findOne({
+      customerId: customer._id,
+    });
+
+    if (!cart) {
+      cart = await CartModel.create({
+        customerId: customer._id,
+        items: [],
+      });
+    }
+
+    // ─────────────────────────
+    // MERGE GUEST CART
+    // SUPPORT CUSTOMIZATION
+    // ─────────────────────────
+
+    for (const gItem of guestCart) {
+      const existingItem = cart.items.find(
+        (item) =>
+          item.productId.toString() ===
+            gItem.productId &&
+          item.variantId.toString() ===
+            gItem.variantId &&
+          (
+            item?.layer?.id ||
+            ""
+          ) ===
+            (
+              gItem?.layer
+                ?.id || ""
+            )
+      );
+
+      // SAME ITEM
+      if (existingItem) {
+        existingItem.qty +=
+          gItem.qty || 1;
+
+        // update customization
+        existingItem.layer =
+          gItem.layer || null;
+      }
+
+      // NEW ITEM
+      else {
         cart.items.push({
           productId: gItem.productId,
+
           variantId: gItem.variantId,
-          qty: gItem.qty,
+
+          qty: gItem.qty || 1,
+
+          layer:
+            gItem.layer || null,
         });
       }
-    });
+    }
+
+    // ─────────────────────────
+    // SAVE CART
+    // ─────────────────────────
 
     await cart.save();
 
-    // 🔹 Populate only necessary fields
+    // ─────────────────────────
+    // POPULATE PRODUCT
+    // ─────────────────────────
+
     await cart.populate({
       path: "items.productId",
-      select: "name images variants gstPercent slug",
+
+      select:
+        "name images variants gstPercent slug customization",
     });
 
-    // 🔹 Generate token
-    const tokens = generateToken({ id: customer._id, role: "CUSTOMER" });
+    // ─────────────────────────
+    // TOKEN
+    // ─────────────────────────
 
-    return res.json({
+    const tokens = generateToken({
+      id: customer._id,
+      role: "CUSTOMER",
+    });
+
+    // remove password
+    customer.password = undefined;
+
+    // ─────────────────────────
+    // RESPONSE
+    // ─────────────────────────
+
+    return res.status(200).json({
       success: true,
+
+      message: "Login successful",
+
       tokens,
+
       user: customer,
+
       items: formatCart(cart),
     });
   } catch (err) {
     console.error("Login Error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
   }
 };
 

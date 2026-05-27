@@ -1,32 +1,185 @@
 
 
-
-
 import mongoose from "mongoose";
 
-import { ORDER_STATUS } from "../constants/enums.js";
+import { ORDER_STATUS, PRODUCT_AREAS } from "../constants/enums.js";
+
+// ─────────────────────────────────────────────
+// LAYER SCHEMA
+// ─────────────────────────────────────────────
+
+const layerSchema = new mongoose.Schema(
+  {
+    id: {
+      type: String,
+      index: true,
+    },
+    isCustomized: {
+  type: Boolean,
+  default: false,
+},
+
+    type: {
+      type: String,
+      enum: ["text"],
+      default: "text",
+      required: true,
+    },
+
+    area: {
+      type: String,
+      enum: PRODUCT_AREAS,
+      required: true,
+    },
+
+    text: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    textMaxLength: {
+      type: Number,
+      default: 30,
+      min: 1,
+      max: 50,
+    },
+
+    fontSizePercent: {
+      type: Number,
+      default: 4,
+      min: 0.5,
+      max: 10,
+    },
+
+    textWidthPercent: {
+      type: Number,
+      default: 80,
+      min: 0,
+      max: 100,
+    },
+
+    color: {
+      type: String,
+      default: "#ffffff",
+    },
+
+    fontFamily: {
+      type: String,
+      default: "Arial",
+    },
+
+    bold: {
+      type: Boolean,
+      default: false,
+    },
+
+    curved: {
+      type: Boolean,
+      default: false,
+    },
+
+    curveRadius: {
+      type: Number,
+      default: 120,
+      min: 40,
+      max: 300,
+    },
+
+    xPercent: {
+      type: Number,
+      default: 50,
+      min: 0,
+      max: 100,
+    },
+
+    yPercent: {
+      type: Number,
+      default: 50,
+      min: 0,
+      max: 100,
+    },
+
+    rotation: {
+      type: Number,
+      default: 0,
+      min: -180,
+      max: 180,
+    },
+
+    image: {
+      url: {
+        type: String,
+        default: null,
+      },
+
+      public_id: {
+        type: String,
+        default: null,
+      },
+    },
+  },
+  {
+    _id: false,
+  }
+);
 
 const orderSchema = new mongoose.Schema(
   {
     rmOrderId: { type: String, unique: true, index: true },
 
-    customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", required: true },
-    reason:String,
-    store: { type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true },
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      required: true,
+    },
+
+    reason: String,
+
+    store: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Store",
+      required: true,
+    },
 
     items: [
       {
+        productId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+        },
+
+        variantId: {
+          type: mongoose.Schema.Types.ObjectId,
+        },
+
         productName: String,
+
         variantLabel: String,
+
         sellingPrice: Number,
+
         qty: Number,
-        gstPercent: Number
-      }
+
+        gstPercent: Number,
+
+        // ✅ CUSTOMIZE DATA
+        layer: {
+          type: layerSchema,
+          default: null,
+        },
+      },
     ],
 
     totalAmount: Number,
+
     gstAmount: Number,
-    discountAmount: { type: Number, default: 0 },
+
+    discountAmount: {
+      type: Number,
+      default: 0,
+    },
+
     payableAmount: Number,
 
     couponCode: String,
@@ -35,97 +188,89 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       enum: ["COD", "ONLINE", "UPI", "WALLET"],
-      default: "COD"
+      default: "COD",
     },
+
     paymentStatus: {
       type: String,
       enum: ["PENDING", "PAID", "FAILED", "REFUNDED"],
-      default: "PENDING"
+      default: "PENDING",
     },
+
     transactionId: String,
 
     // ✅ Delivery
     deliveryDate: Date,
+
     notes: String,
+
     deliverySlot: String,
-  deliveryAddress: {
-  fullAddress: String,
-  addressLine:String,
-  city: String,
-  state: String,
-  pincode: String,
 
-  location: {
-    type: {
-      type: String,
-      enum: ["Point"],
-      default: "Point",
+    deliveryAddress: {
+      fullAddress: String,
+
+      addressLine: String,
+
+      city: String,
+
+      state: String,
+
+      pincode: String,
+
+      location: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          default: "Point",
+        },
+
+        coordinates: {
+          type: [Number],
+          required: true,
+        },
+      },
     },
-    coordinates: {
-      type: [Number], // [lng, lat]
-      required: true,
+
+    deliveryMeta: {
+      distanceKm: {
+        type: Number,
+        default: 0,
+      },
+
+      assignedStoreType: String,
     },
-  },
-},
 
-deliveryMeta: {
-  distanceKm: { type: Number, default: 0 },
-  assignedStoreType: String, // optional (nearest/manual)
-},
-
-  
     status: {
       type: String,
       enum: Object.values(ORDER_STATUS),
       default: ORDER_STATUS.PLACED,
-      index: true
+      index: true,
     },
 
     // ✅ Status Timeline
     statusTimeline: {
-      placedAt: { type: Date, default: Date.now },
+      placedAt: {
+        type: Date,
+        default: Date.now,
+      },
+
       acceptedAt: Date,
+
       preparingAt: Date,
+
       readyAt: Date,
+
       outForDeliveryAt: Date,
+
       deliveredAt: Date,
-      cancelledAt: Date
-    }
+
+      cancelledAt: Date,
+    },
   },
-  { timestamps: true }
-);
-
-// ================= AUTO ORDER ID + STATUS TIMELINE =================
-orderSchema.pre("save", async function (next) {
-
-  if (this.isModified("status")) {
-    const now = new Date();
-
-    switch (this.status) {
-      case ORDER_STATUS.ACCEPTED:
-        this.statusTimeline.acceptedAt = now;
-        break;
-      case ORDER_STATUS.PREPARING:
-        this.statusTimeline.preparingAt = now;
-        break;
-      case ORDER_STATUS.READY:
-        this.statusTimeline.readyAt = now;
-        break;
-      case ORDER_STATUS.OUT_FOR_DELIVERY:
-        this.statusTimeline.outForDeliveryAt = now;
-        break;
-      case ORDER_STATUS.DELIVERED:
-        this.statusTimeline.deliveredAt = now;
-        this.paymentStatus = "PAID"; // COD auto paid
-        break;
-      case ORDER_STATUS.CANCELLED:
-        this.statusTimeline.cancelledAt = now;
-        break;
-    }
+  {
+    timestamps: true,
   }
-
-  next();
-});
+);
 
 export default mongoose.model("Order", orderSchema);
 

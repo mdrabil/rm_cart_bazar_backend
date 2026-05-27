@@ -57,23 +57,80 @@ export const getPrimaryImage = (product) => {
 // };
 
 
+// export const formatCart = (cart) => {
+//   return cart.items.map((item) => {
+//     const product = item.productId;
+//     const variant = product?.variants?.id(item.variantId);
+
+//     return {
+//       productId: product?._id?.toString(),
+//       variantId: item.variantId?.toString(),
+//       name: product?.name || "",
+//       slug: product?.slug || "",
+//       variantLabel: variant?.label || "",
+//       variantValue: variant?.value || "",
+//       mrp: variant?.mrp || 0,
+//       sellingPrice: variant?.sellingPrice || 0,
+//       gstPercent: product?.gstPercent || 0,
+//       quantity: item.qty || 0,
+//       images: product?.images?.map(i => i.url) || [], // 🔥 ONLY URL
+//     };
+//   });
+// };
+
+
 export const formatCart = (cart) => {
   return cart.items.map((item) => {
     const product = item.productId;
-    const variant = product?.variants?.id(item.variantId);
+
+    // populated + non populated dono handle
+    const variant = product?.variants?.find(
+      (v) =>
+        v._id.toString() ===
+        item.variantId.toString()
+    );
+
+  const layer = item.layer || null;
 
     return {
-      productId: product?._id?.toString(),
-      variantId: item.variantId?.toString(),
+      productId:
+        product?._id?.toString() || "",
+
+      variantId:
+        item.variantId?.toString() || "",
+
       name: product?.name || "",
+
       slug: product?.slug || "",
-      variantLabel: variant?.label || "",
-      variantValue: variant?.value || "",
+
+      variantLabel:
+        variant?.label || "",
+
+      variantValue:
+        variant?.value || "",
+
       mrp: variant?.mrp || 0,
-      sellingPrice: variant?.sellingPrice || 0,
-      gstPercent: product?.gstPercent || 0,
-      quantity: item.qty || 0,
-      images: product?.images?.map(i => i.url) || [], // 🔥 ONLY URL
+
+      sellingPrice:
+        variant?.sellingPrice || 0,
+
+      gstPercent:
+        product?.gstPercent || 0,
+
+      quantity: item.qty || 1,
+
+      // 🔥 ONLY IMAGE URLS
+      // images:
+      //   product?.images?.map(
+      //     (i) => i.url
+      //   ) || [],
+
+      images: product.images?.map((img) => ({
+  url: img.url,
+})) || [],
+
+      // 🔥 CUSTOMIZATION
+      layer: layer || null,
     };
   });
 };

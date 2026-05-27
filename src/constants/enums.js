@@ -28,6 +28,15 @@ export const STATUS  = Object.freeze({
   INACTIVE: "INACTIVE",
 });
 
+
+export const PRODUCT_AREAS = [
+  "front",
+  "back",
+  "leftSleeve",
+  "rightSleeve",
+  "pocket",
+];
+
 export const STORE_STATUS = Object.freeze({
   ACTIVE: "ACTIVE",
   INACTIVE: "INACTIVE",
