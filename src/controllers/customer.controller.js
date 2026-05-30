@@ -913,6 +913,15 @@ export const customerLogin = async (req, res) => {
               gItem?.layer
                 ?.layerId || ""
             )
+            &&
+          (
+            item?.layer?.area ||
+            ""
+          ) ===
+            (
+              gItem?.layer
+                ?.area || ""
+            )
       );
 
       // SAME ITEM
