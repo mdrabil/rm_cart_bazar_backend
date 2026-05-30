@@ -906,12 +906,12 @@ export const customerLogin = async (req, res) => {
           item.variantId.toString() ===
             gItem.variantId &&
           (
-            item?.layer?.id ||
+            item?.layer?.layerId ||
             ""
           ) ===
             (
               gItem?.layer
-                ?.id || ""
+                ?.layerId || ""
             )
       );
 
