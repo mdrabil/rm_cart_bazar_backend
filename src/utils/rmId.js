@@ -56,16 +56,18 @@ export const generateProductSlug = async (name) => {
   return slug;
 };
 
-export const generateLayerId = async () => {
-  const counter = await Counter.findOneAndUpdate(
-    { _id: "LAYER" },
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
-  );
 
-  return `LYR-${counter.seq.toString().padStart(6, "0")}`;
+export const generateLayerId = () => {
+  try {
+    return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  } catch (e) {
+    // fallback if crypto is not available
+    return (
+      Date.now().toString(36) +
+      Math.random().toString(36).substring(2, 6)
+    ).slice(0, 12);
+  }
 };
-
 
 // const getNextSequence = async (name) => {
 //   const counter = await Counter.findByIdAndUpdate(

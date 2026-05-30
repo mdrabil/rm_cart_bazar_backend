@@ -210,6 +210,10 @@ const productSchema = new mongoose.Schema(
       type:    String,
       default: "",
     },
+      shortDesc: {
+      type:    String,
+      default: "",
+    },
 
     images: [
       {

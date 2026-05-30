@@ -3,14 +3,16 @@
 import mongoose from "mongoose";
 import { PRODUCT_AREAS } from "../constants/enums.js";
 
-// ─────────────────────────────────────────────
-// LAYER SCHEMA
-// ─────────────────────────────────────────────
 
 const layerSchema = new mongoose.Schema(
   {
     id: {
       type: String,
+      index: true,
+    },
+        layerId: {
+      type: String,
+      required: true,
       index: true,
     },
 
@@ -119,9 +121,6 @@ const layerSchema = new mongoose.Schema(
   }
 );
 
-// ─────────────────────────────────────────────
-// CART ITEM
-// ─────────────────────────────────────────────
 
 const cartItemSchema = new mongoose.Schema(
   {
