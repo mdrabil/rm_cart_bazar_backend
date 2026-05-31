@@ -58,9 +58,7 @@ const layerSchema = new mongoose.Schema(
       max:     50,
     },
 
-    // Controls the text bounding-box width as a percentage of canvas width.
-    // 0 = hidden, 100 = full canvas width.
-    // Used for responsive wrapping on the customer-facing designer / preview.
+
     textWidthPercent: {
       type:    Number,
       default: 80,

@@ -434,7 +434,7 @@ export const getAllProducts2 = async (req, res) => {
       // product data
       ProductModel.find(filter)
         .select(`
-          _id rmProductId name slug description category subCategory 
+          _id rmProductId name slug description shortDesc category subCategory 
           variants gstPercent status images thumbnails createdAt label totalReviews
         `)
         .populate("category", "name")
@@ -488,6 +488,7 @@ export const getAllProducts2 = async (req, res) => {
       slug:p.slug,
       name: p.name,
       description: p.description,
+      shortDesc: p.shortDesc,
       category: p.category,
       label: p.label,
       subCategory: p.subCategory,
@@ -590,7 +591,7 @@ if (sortBy) {
 
       ProductModel.find(filter)
         .select(`
-          _id rmProductId name slug description 
+          _id rmProductId name slug description  shortDesc
           variants gstPercent status images createdAt label totalReviews averageRating customization
         `)
         .lean()
@@ -606,6 +607,7 @@ if (sortBy) {
       slug: p.slug,
       name: p.name,
       description: p.description,
+      shortDesc: p.shortDesc,
       category: p.category,
       label: p.label,
       subCategory: p.subCategory,

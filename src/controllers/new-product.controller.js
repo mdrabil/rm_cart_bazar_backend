@@ -36,7 +36,7 @@ const createProductSchema = Joi.object({
   subCategory:      Joi.string().allow("", null),
   label:            Joi.string().allow(""),
   description:      Joi.string().allow(""),
-  shortDescription: Joi.string().allow(""),
+  shortDesc: Joi.string().allow(""),
   brand:            Joi.string().allow(""),
   material:         Joi.string().allow(""),
   fitType:          Joi.string().allow(""),
@@ -417,7 +417,7 @@ export const updateProduct = async (req, res) => {
     // ── Scalar fields ─────────────────────────────────────────────────────────
 
     const scalarFields = [
-      "name", "label", "description", "shortDescription",
+      "name", "label", "description", "shortDesc",
       "brand", "material", "fitType",
       "gstPercent", "totalReviews", "averageRating", "status",
     ];

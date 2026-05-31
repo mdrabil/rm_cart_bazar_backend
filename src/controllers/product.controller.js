@@ -13,6 +13,7 @@ const createProductSchema = Joi.object({
   category: Joi.string().required(),
   subCategory: Joi.string().optional(),
   description: Joi.string().allow(""),
+  shortDesc: Joi.string().allow(""),
   label: Joi.string().optional(),
   variants: Joi.array().items(
     Joi.object({
@@ -35,6 +36,7 @@ const updateProductSchema = Joi.object({
 averageRating: Joi.number().min(0).max(5).optional(),
   subCategory: Joi.string().allow("", null),
   description: Joi.string().allow(""),
+  shortDesc: Joi.string().allow(""),
   label: Joi.string(),
   variants: Joi.array().items(
     Joi.object({
