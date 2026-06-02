@@ -534,6 +534,10 @@ if (status && status !== "all") {
         path: "customerId",
         select: "fullName mobile email",
       })
+        .populate({
+        path: "items.productId",
+        select: "images rmProductId",
+      })
       .populate("store", "_id storeName address")
       .sort(sort)
       .skip((page - 1) * limit)

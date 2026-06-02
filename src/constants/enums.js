@@ -35,6 +35,7 @@ export const PRODUCT_AREAS = [
   "leftSleeve",
   "rightSleeve",
   "pocket",
+  "none"
 ];
 
 export const STORE_STATUS = Object.freeze({

@@ -379,12 +379,27 @@ export const placeOrderController = async (req, res) => {
       gstAmount += itemGST;
 
       // ================= CUSTOMIZE =================
+      // const layer = item.layer
+      //   ? {
+      //       ...item.layer.toObject?.(),
+      //       isCustomized: !!item.layer?.text?.trim()
+      //     }
+      //   : null;
+
       const layer = item.layer
-        ? {
-            ...item.layer.toObject?.(),
-            isCustomized: !!item.layer?.text?.trim()
-          }
-        : null;
+  ? {
+      ...(item.layer.toObject?.() || item.layer),
+      isCustomized: !!item.layer?.text?.trim()
+    }
+  : {
+      area: "none",
+      isCustomized: false,
+
+      image:
+        product.images?.[0] ||
+        product.customization?.layers?.[0]?.image ||
+        null
+    };
 
       // ================= PUSH ORDER ITEM =================
       orderItems.push({

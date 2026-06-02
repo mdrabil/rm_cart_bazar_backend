@@ -283,7 +283,7 @@ const existing = cart.items.find((i) => {
       path: "items.productId",
 
       select:
-        "name images variants gstPercent slug customization",
+        "name images variants gstPercent slug customization label",
     });
 
     return res.json({
@@ -390,7 +390,7 @@ cart.items = cart.items.filter(
       path: "items.productId",
 
       select:
-        "name images variants gstPercent slug customization",
+        "name images variants gstPercent slug customization label",
     });
 
     return res.json({
@@ -453,7 +453,7 @@ export const removeFromCart = async (req, res) => {
         path: "items.productId",
 
         select:
-          "name images variants gstPercent slug customization",
+          "name images variants gstPercent slug customization label",
       });
 
       return res.json({
@@ -490,7 +490,7 @@ export const getCart = async (
       path: "items.productId",
 
       select:
-        "name images variants gstPercent slug customization",
+        "name images variants gstPercent slug customization label",
     });
 
     if (!cart) {
@@ -661,7 +661,7 @@ export const updateCartLayer = async (req, res) => {
     // ─────────────────────────────
     await cart.populate({
       path: "items.productId",
-      select: "name images variants gstPercent slug customization",
+      select: "name images variants gstPercent slug customization label",
     });
 
     return res.status(200).json({

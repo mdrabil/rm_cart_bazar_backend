@@ -764,7 +764,7 @@ export const createCustomer = async (req, res) => {
       path: "items.productId",
 
       select:
-        "name images variants gstPercent slug customization",
+        "name images variants gstPercent slug customization label",
     });
 
     // =========================
@@ -963,7 +963,7 @@ export const customerLogin = async (req, res) => {
       path: "items.productId",
 
       select:
-        "name images variants gstPercent slug customization",
+        "name images variants gstPercent slug customization label",
     });
 
     // ─────────────────────────

@@ -104,7 +104,7 @@ export const formatCart = (cart) => {
       slug: product?.slug || "",
 
       variantLabel:
-        variant?.label || "",
+        product?.label || "",
 
       variantValue:
         variant?.value || "",
