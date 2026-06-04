@@ -1,6 +1,6 @@
 import express from "express";
 
-import { addAddress, changeCustomerPassword, createCustomer, customerLogin, customerLogout, deleteAddress, deleteCustomerAddress, setDefaultAddress, updateAddress, updateCustomerDp, updateCustomerProfile } from "../../controllers/customer.controller.js";
+import { addAddress, changeCustomerPassword, createCustomer, customerLogin, customerLogout, deleteAddress, deleteCustomerAddress, sendEmailOtp, setDefaultAddress, updateAddress, updateCustomerDp, updateCustomerProfile, verifyEmailOtp } from "../../controllers/customer.controller.js";
 import { customerAuth } from "../../middlewares/customerAuth.middleware.js";
 import { singleDbUpload } from "../../middlewares/upload.middleware.js";
 import { resetPassword, sendOtp, verifyOtp } from "../../controllers/customer/CustomerAppOtp.controller.js";
@@ -32,7 +32,8 @@ router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
 router.post("/reset-password", resetPassword);
 
-
+router.post("/send-email-otp", sendEmailOtp);
+router.post("/verify-email-otp", verifyEmailOtp);
 
 
 

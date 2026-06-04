@@ -322,12 +322,27 @@ export const verifyPaymentController = async (req, res) => {
       gstAmount += itemGST;
 
 
-      const layer = item.layer
+  //     const layer = item.layer
+  // ? {
+  //     ...item.layer.toObject?.(),
+  //     isCustomized: !!item.layer?.text?.trim()
+  //   }
+  // : null;
+
+        const layer = item.layer
   ? {
-      ...item.layer.toObject?.(),
+      ...(item.layer.toObject?.() || item.layer),
       isCustomized: !!item.layer?.text?.trim()
     }
-  : null;
+  : {
+      area: "none",
+      isCustomized: false,
+
+      image:
+        product.images?.[0] ||
+        product.customization?.layers?.[0]?.image ||
+        null
+    };
 
 
       orderItems.push({

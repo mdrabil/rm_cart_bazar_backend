@@ -15,6 +15,8 @@ import CouponUsageModel from "../models/CouponUsage.model.js";
 import OrderModel from "../models/Order.model.js";
 import UserModel from "../models/User.model.js";
 import cloudinary from "../config/cloudinaryConfig.js";
+import MailVarificationModel from "../models/MailVarification.model.js";
+import { sendEmail } from "../constants/mailer.js";
 
 // ✅ Validation Schemas
 const addressSchema = Joi.object({
@@ -45,592 +47,136 @@ const orderListSchema = Joi.object({
 });
 
 
-// ==================== CONTROLLER FUNCTIONS ====================
 
-// Create Customer
-// export const createCustomer = async (req, res) => {
-//   try {
-//     const { error, value } = customerSchema.validate(req.body);
-//     if (error) return res.status(400).json({ success: false, message: error.message });
 
 
-    
-//     value.rmCustomerId = await generateRMId("RMCU",'CUSTOMER'); // generate here
-
-//     const customer = new Customer(value);
-//     await customer.save();
-
-//     res.json({ success: true, customer });
-//   } catch (err) {
-//     res.status(500).json({ success: false, message: err.message });
-//   }
-// };
-
-
-
-// export const createCustomer = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-//     // ✅ Validate Request Body
-//     const { error, value } = customerValidator.validate(req.body);
-//     if (error) {
-//       return res.status(400).json({
-//         success: false,
-//         message: error.details?.[0]?.message || error.message,
-//       });
-//     }
-
-//     const { name, mobile, email, password } = value;
-
-//     // ✅ Check Duplicate User
-//     const existing = await Customer.findOne(
-//       { $or: [{ mobile }, { email }] },
-//       null,
-//       { session }
-//     );
-
-//     if (existing) {
-//       return res.status(409).json({
-//         success: false,
-//         message: "Customer already exists",
-//       });
-//     }
-
-    
-//     // 🔐 Hash Password
-//     const hashedPassword = await bcrypt.hash(password, 12);
-
-//     // 🆔 Generate RM Customer ID
-//     const rmCustomerId = await generateRMId("RMCU", "CUSTOMER");
-
-//     // ✅ Create Customer
-//     const customer = await Customer.create(
-//       [
-//         {
-//           fullName:name,
-//           mobile,
-//           email,
-//           password: hashedPassword,
-//           rmCustomerId,
-//           role: "CUSTOMER",
-//         },
-//       ],
-//       { session }
-//     );
-
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "Customer created successfully",
-//       customer: {
-//         id: customer[0]._id,
-//         rmCustomerId: customer[0].rmCustomerId,
-//         fullName: customer[0].fullName,
-//         mobile: customer[0].mobile,
-//         email: customer[0].email,
-//       },
-//     });
-//   } catch (err) {
-//     await session.abortTransaction();
-//     session.endSession();
-//     console.error("Create Customer Error:", err);
-
-//     // Duplicate Key Error Handler
-//     if (err.code === 11000) {
-//       return res.status(409).json({
-//         success: false,
-//         message: "Duplicate field error",
-//         key: err.keyValue,
-//       });
-//     }
-
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//     });
-//   }
-// };
-
-
-
-// export const customerLogin = async (req, res) => {
-//   try {
-//     const { mobile, email, password } = req.body;
-
-//     if ((!mobile && !email) || !password) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Mobile or Email and Password required",
-//       });
-//     }
-
-// const query = [];
-
-// if (mobile) query.push({ mobile });
-// if (email) query.push({ email });
-
-// const customer = await Customer.findOne({
-//   $or: query,
-// }).select("+password");
-
-//     if (!customer) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Customer not found",
-//       });
-//     }
-
-//     if (customer.isBlocked) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Account blocked",
-//       });
-//     }
-
-//     // Password check
-//     const isMatch = await bcrypt.compare(password, customer.password);
-//     if (!isMatch) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "Invalid password",
-//       });
-//     }
-
-//     // Token payload
-//     const payload = {
-//       id: customer._id,
-//       role: "CUSTOMER",
-//       mobile: customer.mobile,
-//       email: customer.email,
-//     };
-
-//     const tokens = generateToken(payload);
-
-//     // Save refresh token
-//     customer.refreshToken = tokens.refreshToken;
-//     await customer.save();
-
-//     // Remove password before sending response
-//     const userData = customer.toObject();
-//     delete userData.password;
-
-//     return res.json({
-//       success: true,
-//       message: "Login successful",
-//       tokens,
-//       user: userData,
-//     });
-//   } catch (err) {
-//     console.error("Login Error:", err);
-//     res.status(500).json({ success: false, message: "Server error" });
-//   }
-// };
-
-
-// controllers/customerAuth.controller.js
-
-
-// export const createCustomer = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-//     const { error, value } = customerValidator.validate(req.body);
-//     if (error)
-//       return res.status(400).json({ success: false, message: error.message });
-
-//     const { name, mobile, email, password, guestCart } = value;
-
-//     const existing = await Customer.findOne(
-//       { $or: [{ mobile }, { email }] },
-//       null,
-//       { session }
-//     );
-
-//     if (existing)
-//       return res.status(409).json({
-//         success: false,
-//         message: "Customer already exists",
-//       });
-
-//     const hashedPassword = await bcrypt.hash(password, 12);
-//     const rmCustomerId = await generateRMId("RMCU", "CUSTOMER");
-
-//     const customer = await Customer.create(
-//       [
-//         {
-//           fullName: name,
-//           mobile,
-//           email,
-//           password: hashedPassword,
-//           rmCustomerId,
-//           role: "CUSTOMER",
-//         },
-//       ],
-//       { session }
-//     );
-
-//     // 🔥 CREATE CART
-//     const cart = await CartModel.create(
-//       [
-//         {
-//           customer: customer[0]._id,
-//           items: [],
-//         },
-//       ],
-//       { session }
-//     );
-
-//     // 🔥 MERGE GUEST CART IF EXISTS
-//     if (guestCart && guestCart.length > 0) {
-//       guestCart.forEach((gItem) => {
-//         cart[0].items.push({
-//           product: gItem.productId,
-//           variantId: gItem.variantId,
-//           qty: gItem.qty,
-//         });
-//       });
-
-//       await cart[0].save({ session });
-//     }
-
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     // 🔥 Populate before sending
-//     await cart[0].populate({
-//       path: "items.product",
-//       select: "name images variants gstPercent",
-//     });
-
-//     const formattedCart = cart[0].items.map((item) => {
-//       const variant = item.product.variants.id(item.variantId);
-
-//       return {
-//         productId: item.product._id,
-//         name: item.product.name,
-//         image: item.product.images?.[0]?.url || "",
-//         variantValue: variant?.value,
-//         sellingPrice: variant?.sellingPrice,
-//         mrp: variant?.mrp,
-//         gstPercent: item.product.gstPercent,
-//         qty: item.qty,
-//       };
-//     });
-
-//     const payload = {
-//       id: customer[0]._id,
-//       role: "CUSTOMER",
-//     };
-
-//     const tokens = generateToken(payload);
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "Customer created successfully",
-//       tokens,
-//       user: customer[0],
-//       cart: formattedCart, // 🔥 cart bhi bhej diya
-//     });
-//   } catch (err) {
-//     await session.abortTransaction();
-//     session.endSession();
-//     console.error("Create Customer Error:", err);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//     });
-//   }
-// };
-
-// export const createCustomer = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-//     const { error, value } = customerValidator.validate(req.body);
-//     if (error) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(400).json({ success: false, message: error.message });
-//     }
-
-//     const { name, mobile, email, password, guestCart = [] } = value;
-
-//     const existing = await Customer.findOne(
-//       { $or: [{ mobile }, { email }] },
-//       null,
-//       { session }
-//     );
-
-//     if (existing) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(409).json({
-//         success: false,
-//         message: "Customer already exists",
-//       });
-//     }
-
-//     const hashedPassword = await bcrypt.hash(password, 12);
-//     const rmCustomerId = await generateRMId("RMCU", "CUSTOMER");
-
-//     const [customer] = await Customer.create(
-//       [
-//         {
-//           fullName: name,
-//           mobile,
-//           email,
-//           password: hashedPassword,
-//           rmCustomerId,
-//           role: "CUSTOMER",
-//         },
-//       ],
-//       { session }
-//     );
-
-//     const [cart] = await CartModel.create(
-//       [
-//         {
-//           customerId: customer._id,
-//           items: [],
-//         },
-//       ],
-//       { session }
-//     );
-
-//     // 🔥 Merge Guest Cart
-//     for (const gItem of guestCart) {
-//       cart.items.push({
-//         productId: gItem.productId,
-//         variantId: gItem.variantId,
-//         qty: gItem.qty,
-//       });
-//     }
-
-//     await cart.save({ session });
-
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     // 🔥 Populate correctly
-//     await cart.populate({
-//       path: "items.productId",
-//       select: "name images variants gstPercent",
-//     });
-
-// //         await cart.populate({
-// //   path: "items.productId",
-// //   select: "name images variants gstPercent",
-// // });
-
-// // const formattedCart = cart.items.map((item) => {
-// //   const product = item.productId;
-
-// //   const variant = product?.variants?.find(
-// //     (v) => v._id?.toString() === item.variantId?.toString()
-// //   );
-
-// //   return {
-// //     productId: product?._id,
-// //     variantId: item.variantId,
-// //     name: product?.name || "",
-// //     image: product?.images?.[0]?.url || "",
-// //     variantValue: variant?.value || "",
-// //     sellingPrice: variant?.sellingPrice || 0,
-// //     mrp: variant?.mrp || 0,
-// //     gstPercent: product?.gstPercent || 0,
-// //     qty: item.qty || 0,
-// //   };
-// // });
-
-//     const tokens = generateToken({
-//       id: customer._id,
-//       role: "CUSTOMER",
-//     });
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "Customer created successfully",
-//       tokens,
-//       user: customer,
-//     });
-//   } catch (err) {
-//     await session.abortTransaction();
-//     session.endSession();
-//     console.error("Create Customer Error:", err);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//     });
-//   }
-// };
-
-// export const createCustomer = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   let transactionStarted = false;
-
-//   try {
-//     session.startTransaction();
-//     transactionStarted = true;
-
-//     const { error, value } = customerValidator.validate(req.body);
-//     if (error) {
-//       if (transactionStarted) await session.abortTransaction();
-//       session.endSession();
-//       return res.status(400).json({ success: false, message: error.message });
-//     }
-
-//     const { name, mobile, email, password, guestCart = [] } = value;
-
-//     const existing = await Customer.findOne(
-//       { $or: [{ mobile }, { email }] },
-//       null,
-//       { session }
-//     );
-
-//     if (existing) {
-//       if (transactionStarted) await session.abortTransaction();
-//       session.endSession();
-//       return res.status(409).json({ success: false, message: "Customer already exists" });
-//     }
-
-//     const hashedPassword = await bcrypt.hash(password, 12);
-//     const rmCustomerId = await generateRMId("RMCU", "CUSTOMER");
-
-//     const [customer] = await Customer.create([{ fullName: name, mobile, email, password: hashedPassword, rmCustomerId, role: "CUSTOMER" }], { session });
-//     const [cart] = await CartModel.create([{ customerId: customer._id, items: [] }], { session });
-
-//     // Merge guest cart
-//     for (const gItem of guestCart) {
-//       cart.items.push({ productId: gItem.productId, variantId: gItem.variantId, qty: gItem.qty });
-//     }
-
-//     await cart.save({ session });
-
-//     await session.commitTransaction();
-//     transactionStarted = false; // transaction committed
-//     session.endSession();
-
-//     await cart.populate({ path: "items.productId", select: "name images variants gstPercent slug" });
-
-//     const tokens = generateToken({ id: customer._id, role: "CUSTOMER" });
-
-//     return res.status(201).json({ success: true, message: "Customer created successfully", tokens, user: customer,
-//        items: formatCart(cart),
-//      });
-//   } catch (err) {
-//     if (transactionStarted) {
-//       await session.abortTransaction();
-//     }
-//     session.endSession();
-//     console.error("Create Customer Error:", err);
-//     return res.status(500).json({ success: false, message: "Internal Server Error" });
-//   }
-// };
-
-
-// export const customerLogin = async (req, res) => {
-//   try {
-//     const { mobile, email, password, guestCart } = req.body;
-
-//     if ((!mobile && !email) || !password) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Mobile or Email and Password required",
-//       });
-//     }
-
-//     const query = [];
-//     if (mobile) query.push({ mobile });
-//     if (email) query.push({ email });
-
-//     const customer = await Customer.findOne({ $or: query }).select("+password");
-
-//     if (!customer)
-//       return res.status(404).json({ success: false, message: "Customer not found" });
-
-//     const isMatch = await bcrypt.compare(password, customer.password);
-//     if (!isMatch)
-//       return res.status(401).json({ success: false, message: "Invalid password" });
-
-//     // 🔥 FIND OR CREATE CART
-//     let cart = await CartModel.findOne({ customer: customer._id });
-
-//     if (!cart) {
-//       cart = await CartModel.create({
-//         customer: customer._id,
-//         items: [],
-//       });
-//     }
-
-//     // 🔥 MERGE GUEST CART IF EXISTS
-//     if (guestCart && guestCart.length > 0) {
-//       guestCart.forEach((gItem) => {
-//         const existingItem = cart.items.find(
-//           (item) =>
-//             item.productId.toString() === gItem.productId &&
-//             item.variantId.toString() === gItem.variantId
-//         );
-
-//         if (existingItem) {
-//           existingItem.qty += gItem.qty;
-//         } else {
-//           cart.items.push({
-//             productId: gItem.productId,
-//             variantId: gItem.variantId,
-//             qty: gItem.qty,
-//           });
-//         }
-//       });
-
-//       await cart.save();
-//     }
-
-//     await cart.populate({
-//       path: "items.product",
-//       select: "name images variants gstPercent",
-//     });
-
-//     const formattedCart = cart.items.map((item) => {
-//       const variant = item.product.variants.id(item.variantId);
-
-//       return {
-//         productId: item.product._id,
-//         name: item.product.name,
-//         image: item.product.images?.[0]?.url || "",
-//         variantValue: variant?.value,
-//         sellingPrice: variant?.sellingPrice,
-//         mrp: variant?.mrp,
-//         gstPercent: item.product.gstPercent,
-//         qty: item.qty,
-//       };
-//     });
-
-//     const payload = {
-//       id: customer._id,
-//       role: "CUSTOMER",
-//     };
-
-//     const tokens = generateToken(payload);
-
-//     return res.json({
-//       success: true,
-//       message: "Login successful",
-//       tokens,
-//       user: customer,
-//       cart: formattedCart, // 🔥 cart directly bhej diya
-//     });
-//   } catch (err) {
-//     console.error("Login Error:", err);
-//     res.status(500).json({ success: false, message: "Server error" });
-//   }
-// };
-
+export const sendEmailOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email address",
+      });
+    }
+
+    // ✅ Check customer already exists
+    const existingCustomer = await Customer.findOne({ email });
+
+    if (existingCustomer) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered",
+      });
+    }
+
+    // ✅ Check already verified
+    const existingVerification = await MailVarificationModel.findOne({
+      email,
+    });
+
+    if (existingVerification?.verified) {
+      return res.status(200).json({
+        success: true,
+        verified:true,
+        message: "Email already verified",
+      });
+    }
+
+    const otp = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    // remove old otp record
+    await MailVarificationModel.findOneAndDelete({ email });
+
+    await MailVarificationModel.create({
+      email,
+      otp,
+      verified: false,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
+
+    await sendEmail(
+      email,
+      "Email Verification OTP",
+      `Your OTP is ${otp}. It is valid for 5 minutes. Do not share it.`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const verifyEmailOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and OTP are required",
+      });
+    }
+
+    const record = await MailVarificationModel.findOne({
+      email,
+    });
+
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP not found or expired",
+      });
+    }
+
+    if (record.expiresAt < new Date()) {
+      await MailVarification.deleteOne({ email });
+
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired",
+      });
+    }
+
+    if (record.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    record.verified = true;
+    await record.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Email verified successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 export const createCustomer = async (req, res) => {
   const session = await mongoose.startSession();
@@ -661,6 +207,19 @@ export const createCustomer = async (req, res) => {
     // =========================
     // CHECK EXISTING
     // =========================
+
+    const emailVerification =
+  await MailVarificationModel.findOne({
+    email,
+    verified: true,
+  });
+
+if (!emailVerification) {
+  return res.status(400).json({
+    success: false,
+    message: "Please verify your email first",
+  });
+}
 
     const existing = await Customer.findOne(
       {

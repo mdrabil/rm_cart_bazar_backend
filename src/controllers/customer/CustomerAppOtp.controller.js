@@ -30,11 +30,12 @@ export const sendOtp = async (req, res) => {
 
     await CustomerOtpModel.findOneAndDelete({ email });
 
-    await CustomerOtpModel.create({
-      email,
-      otp,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 min
-    });
+  const savedOtp = await CustomerOtpModel.create({
+  email,
+  otp,
+  expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+});
+
 
 await sendEmail(
   email,
@@ -42,7 +43,9 @@ await sendEmail(
   `Your OTP is ${otp}. It is valid for 5 minutes. Do not share it.`
 );
 
-    res.json({ success: true, message: "OTP sent" });
+console.log("OTP SAVED =>", savedOtp);
+
+    res.status(200).json({ success: true, message: "OTP sent Successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -52,8 +55,11 @@ export const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
+    
     const record = await CustomerOtpModel.findOne({ email });
-
+    
+    console.log("get the data",req.body)
+    console.log("get the data in db",record)
     if (!record)
       return res.status(400).json({ message: "OTP expired or invalid" });
 
