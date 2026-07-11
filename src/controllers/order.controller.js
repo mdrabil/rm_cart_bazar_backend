@@ -5,7 +5,7 @@ import Counter from "../models/Counter.model.js";
 import Coupon from "../models/Coupon.model.js";
 import Joi from "joi";
 import { USER_ROLE, ORDER_STATUS } from "../constants/enums.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 import { buildStoreFilter, getUserStoreRole } from "../utils/accessHelper.js";
 import mongoose from "mongoose";
 
@@ -115,11 +115,11 @@ export const createOrder = async (req, res) => {
 
     const payableAmount = totalAmount + gstAmount - discountAmount;
    
-    const rmOrderId = generateRMId("ORD", "ORDER");
+    const mrOrderId = await generateMRId("ORD", "ORDER");
 
     const order = await Order.create({
   ...value,
-  rmOrderId,
+  mrOrderId,
   customer: user._id,
   totalAmount,
   gstAmount,
@@ -277,7 +277,7 @@ export const getOrderById = async (req, res) => {
 //       const regex = new RegExp(search, "i");
 
 //       filter.$or = [
-//         { rmOrderId: regex },
+//         { mrOrderId: regex },
 //         { paymentStatus: regex },
 //         { status: regex },
 
@@ -336,7 +336,7 @@ export const getOrderById = async (req, res) => {
 //         ? orders.filter(
 //             (o) =>
 //               o.customerId ||
-//               o.rmOrderId?.match(new RegExp(search, "i")) ||
+//               o.mrOrderId?.match(new RegExp(search, "i")) ||
 //               o.status?.match(new RegExp(search, "i")) ||
 //               o.paymentStatus?.match(new RegExp(search, "i")) ||
 //               o.totalAmount === Number(search) ||
@@ -481,7 +481,7 @@ if (status && status !== "all") {
       const regex = new RegExp(search, "i");
 
       filter.$or = [
-        { rmOrderId: regex },
+        { mrOrderId: regex },
         { status: regex },
         {
           totalAmount: !isNaN(search) ? Number(search) : -1,
@@ -536,7 +536,7 @@ if (status && status !== "all") {
       })
         .populate({
         path: "items.productId",
-        select: "images rmProductId",
+        select: "images mrProductId",
       })
       .populate("store", "_id storeName address")
       .sort(sort)

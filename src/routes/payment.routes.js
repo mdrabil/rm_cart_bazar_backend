@@ -8,10 +8,15 @@ import express from "express";
 
 import {
   createPaymentOrderController,
+  createCheckoutSessionController,
   deletePayment,
+  getActiveGatewayController,
   getNonSuccessPayments,
   getPaymentById,
   getPayments,
+  paymentWebhookController,
+  paymentReturnController,
+  renderCheckoutPageController,
   saveFailedPaymentController,
   updatePaymentStatus,
   verifyPaymentController,
@@ -25,11 +30,14 @@ const router = express.Router();
 
 
 
-router.post( "/create-order", customerAuth,createPaymentOrderController);
-
-router.post( "/failed",customerAuth,saveFailedPaymentController);
-
-router.post( "/verify", customerAuth,verifyPaymentController);
+router.post("/create-order", customerAuth, createPaymentOrderController);
+router.post("/checkout-session", customerAuth, createCheckoutSessionController);
+router.get("/active-gateway", getActiveGatewayController);
+router.all("/return/:sessionId", paymentReturnController);
+router.get("/page/:sessionId", renderCheckoutPageController);
+router.post("/webhook/:gatewayName", paymentWebhookController);
+router.post("/failed", customerAuth, saveFailedPaymentController);
+router.post("/verify", customerAuth, verifyPaymentController);
 
 
 router.get(

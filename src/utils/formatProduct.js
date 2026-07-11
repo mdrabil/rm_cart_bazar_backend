@@ -11,8 +11,8 @@ export const formatProduct = (product) => {
     gstPercent: product.gstPercent,
     label: product.label,
     // 🔥 Only send image URLs
-    images: product.images?.map(img => img.url) || [],
-    thumbnails: p.thumbnails?.map((img) => img.url),
+    images: product.images?.map((img) => img.url).filter(Boolean) || [],
+    thumbnails: product.thumbnails?.map((img) => img.url).filter(Boolean) || [],
 
     variants: product.variants?.map(v => ({
       _id: v._id,

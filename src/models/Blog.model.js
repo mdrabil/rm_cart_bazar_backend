@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 
 const blogSchema = new mongoose.Schema({
   title: { type: String, required: [true, "Title required"], trim: true },
-  rmBlogId:{ type: String, unique: true, index: true },
+  mrBlogId:{ type: String, unique: true, index: true },
   slug: { type: String, unique: true },
   description: { type: String, required: [true, "Description required"], minlength: 50 },
   categories: {

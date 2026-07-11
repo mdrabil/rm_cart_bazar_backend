@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import { MODULE_KEY } from "../constants/enums.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 const moduleSchema = new mongoose.Schema(
   {
-    rmModuleId: {
+    mrModuleId: {
       type: String,
       unique: true,
       index: true,
@@ -38,13 +38,13 @@ const moduleSchema = new mongoose.Schema(
 );
 
 /* --------------------------------------------------
- 🔥 UNIVERSAL RM ID GENERATION
+ 🔥 UNIVERSAL MR ID GENERATION
 -------------------------------------------------- */
 
 // ✅ save / create
 moduleSchema.pre("save", async function (next) {
-  if (!this.rmModuleId) {
-    this.rmModuleId = await generateRMId("MOD", "MODULE");
+  if (!this.mrModuleId) {
+    this.mrModuleId = await generateMRId("MOD", "MODULE");
   }
   next();
 });
@@ -52,8 +52,8 @@ moduleSchema.pre("save", async function (next) {
 // ✅ insertMany support
 moduleSchema.pre("insertMany", async function (next, docs) {
   for (let doc of docs) {
-    if (!doc.rmModuleId) {
-      doc.rmModuleId = await generateRMId("MOD", "MODULE");
+    if (!doc.mrModuleId) {
+      doc.mrModuleId = await generateMRId("MOD", "MODULE");
     }
   }
   next();
@@ -63,14 +63,14 @@ moduleSchema.pre("insertMany", async function (next, docs) {
 moduleSchema.pre("findOneAndUpdate", async function (next) {
   const update = this.getUpdate();
 
-  if (!update?.$set?.rmModuleId) {
-    const rmId = await generateRMId("MOD", "MODULE");
+  if (!update?.$set?.mrModuleId) {
+    const mrId = await generateMRId("MOD", "MODULE");
 
     this.setUpdate({
       ...update,
       $set: {
         ...update.$set,
-        rmModuleId: rmId,
+        mrModuleId: mrId,
       },
     });
   }

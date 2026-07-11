@@ -1,6 +1,6 @@
 // models/CommissionConfig.js
 import mongoose from "mongoose";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 export const COMMISSION_PLAN_TYPE = {
   MONTHLY_PERCENT: "MONTHLY_PERCENT",
@@ -10,7 +10,7 @@ export const COMMISSION_PLAN_TYPE = {
 
 const commissionConfigSchema = new mongoose.Schema(
   {
-    rmCommissionConfigId: {
+    mrCommissionConfigId: {
       type: String,
       unique: true,
     
@@ -54,8 +54,8 @@ const commissionConfigSchema = new mongoose.Schema(
 
 
 commissionConfigSchema.pre("save", async function (next) {
-  if (!this.rmCommissionConfigId) {
-    this.rmCommissionConfigId = await generateRMId("RMU","COMMISTIONCONFIG");
+  if (!this.mrCommissionConfigId) {
+    this.mrCommissionConfigId = await generateMRId("MRU","COMMISTIONCONFIG");
   }
   next();
 });

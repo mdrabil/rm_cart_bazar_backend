@@ -3,7 +3,7 @@ import UserModel from "../models/User.model.js";
 import asyncHandler from "express-async-handler";
 import cloudinary from "../config/cloudinaryConfig.js";
 import mongoose from "mongoose";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 import BlogCommentsModel from "../models/BlogComments.model.js";
 
 // ================= CREATE BLOG =================
@@ -34,7 +34,7 @@ export const createBlog = asyncHandler(async (req, res) => {
   const imgRes = await cloudinary.uploader.upload(req.files.image[0].path, { folder: "blogs" });
   const thumbRes = await cloudinary.uploader.upload(req.files.thumbnail[0].path, { folder: "blogs/thumbnails" });
 
-  const rmBlogId = await generateRMId('BLG',"BLOG")
+  const mrBlogId = await generateMRId('BLG',"BLOG")
 
  const parsedCategories = Array.isArray(categories)
   ? categories
@@ -46,7 +46,7 @@ const parsedTags = Array.isArray(tags)
 
 const blog = await Blog.create({
   title,
-  rmBlogId,
+  mrBlogId,
     slug: finalSlug,
   description,
   categories: parsedCategories, // <-- store as array

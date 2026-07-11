@@ -126,7 +126,7 @@ const layerSchema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
-    rmOrderId: { type: String, unique: true, index: true },
+    mrOrderId: { type: String, unique: true, index: true },
 
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -187,7 +187,7 @@ const orderSchema = new mongoose.Schema(
     // ✅ Payment
     paymentMethod: {
       type: String,
-      enum: ["COD", "ONLINE", "UPI", "WALLET"],
+      enum: ["COD", "ONLINE", "UPI", "WALLET","CARD","PAYTM","PHONEPE","GPAY","CASHFREE","RAZORPAY","INSTAMOJO","PAYNOW","PAYTM","PHONEPE","GPAY","BANKTRANSFER"],
       default: "COD",
     },
 
@@ -197,7 +197,10 @@ const orderSchema = new mongoose.Schema(
       default: "PENDING",
     },
 
-    transactionId: String,
+    transactionId: String, // actual transaction id from payment gateway
+
+    
+    paymentModuleId: String, // payment order id from payment Id
 
     // ✅ Delivery
     deliveryDate: Date,
@@ -271,6 +274,10 @@ const orderSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+orderSchema.index({ customer: 1, createdAt: -1 });
+orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ "store.storeId": 1, status: 1 });
 
 export default mongoose.model("Order", orderSchema);
 

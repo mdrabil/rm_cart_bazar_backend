@@ -12,7 +12,7 @@ const bannerSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    rmNo: {
+    mrNo: {
       type: String,
       required: true,
     },

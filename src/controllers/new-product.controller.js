@@ -12,7 +12,7 @@ import {
 
 import cloudinary from "../config/cloudinaryConfig.js";
 
-import { generateProductSlug } from "../utils/rmId.js";
+import { generateProductSlug } from "../utils/mrId.js";
 
 // =============================================================================
 // HELPERS

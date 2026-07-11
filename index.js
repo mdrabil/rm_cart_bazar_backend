@@ -1,45 +1,59 @@
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 import express from "express";
 import http from "http";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import compression from "compression";
 import cookieParser from "cookie-parser";
-import routes from './src/routes/mainRoutes.js'
+import rateLimit from "express-rate-limit";
+import routes from "./src/routes/mainRoutes.js";
 import { connectDB } from "./src/config/db.js";
 import { config } from "./src/config/config.js";
 import { errorHandler } from "./src/middlewares/errorHandler.js";
 import { initSocket } from "./src/sockets/socket.js";
-import { runInitialSeeder } from "./src/seeders/initialSeeder.js";
+
+if (
+  process.env.NODE_ENV !== "production" &&
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0"
+) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
 
 const app = express();
 const server = http.createServer(app);
 
-// 🔐 Security
-app.use(helmet());
-app.use(cors({ origin: true, credentials: true }));
+app.set("trust proxy", 1);
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use(compression());
+app.use(
+  cors({
+    origin: config.corsOrigins,
+    credentials: true,
+  })
+);
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
-app.use(morgan("dev"));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(morgan(config.nodeEnv === "production" ? "combined" : "dev"));
 
-// DB
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: config.nodeEnv === "production" ? 500 : 2000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests, please try again later." },
+});
+
 connectDB();
-// runInitialSeeder()
 
+app.use("/api", apiLimiter, routes);
 
-
-// Routes
-app.use("/api", routes);
-
-// Health check
 app.get("/", (req, res) => {
   res.json({ status: "API running 🚀" });
 });
 
-// Error handler (LAST)
 app.use(errorHandler);
 
-// 🔌 Socket init (future ready)
 initSocket(server);
 
 server.listen(config.port, "0.0.0.0", () => {

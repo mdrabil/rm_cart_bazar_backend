@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const jobApplicationSchema = new mongoose.Schema(
   {
-        rmAppliedJobId:{ type: String, unique: true, index: true },
+        mrAppliedJobId:{ type: String, unique: true, index: true },
 
     jobId: {
       type: mongoose.Schema.Types.ObjectId,

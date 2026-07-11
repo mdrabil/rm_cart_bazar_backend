@@ -1,6 +1,6 @@
 import { sendEmail } from "../constants/mailer.js";
 import Enquiry from "../models/Enquiry.model.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 
 
@@ -36,10 +36,10 @@ export const createEnquiry = async (req, res) => {
       });
     }
 
-    const rmEnquiryId = await generateRMId("ENQ", "ENQUIRY");
+    const mrEnquiryId = await generateMRId("ENQ", "ENQUIRY");
 
     const enquiry = await Enquiry.create({
-      rmEnquiryId,
+      mrEnquiryId,
       fullName,
       email,
       phone,
@@ -56,7 +56,7 @@ export const createEnquiry = async (req, res) => {
 
         <h2 style="color:#0d6efd;">📩 New Enquiry Received</h2>
 
-        <p><strong>Enquiry ID:</strong> ${rmEnquiryId}</p>
+        <p><strong>Enquiry ID:</strong> ${mrEnquiryId}</p>
         <hr/>
 
         <p><strong>Full Name:</strong> ${fullName}</p>
@@ -79,7 +79,7 @@ export const createEnquiry = async (req, res) => {
 
     await sendEmail({
       to: process.env.ADMIN_EMAIL,
-      subject: `New Enquiry Received - ${rmEnquiryId}`,
+      subject: `New Enquiry Received - ${mrEnquiryId}`,
       html: htmlTemplate,
     });
 
@@ -108,7 +108,7 @@ export const getAllEnquiries = async (req, res) => {
     { fullName: { $regex: search, $options: "i" } },
     { email: { $regex: search, $options: "i" } },
     { phone: { $regex: search, $options: "i" } },
-    { rmEnquiryId: { $regex: search, $options: "i" } },
+    { mrEnquiryId: { $regex: search, $options: "i" } },
     { subject: { $regex: search, $options: "i" } }, // ✅ added
   ],
 };

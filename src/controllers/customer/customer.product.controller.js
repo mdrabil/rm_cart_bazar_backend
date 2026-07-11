@@ -170,7 +170,7 @@ export const getAllCategorys = async (req, res) => {
 
 // const products = productData.map((p) => ({
 //   _id: p._id,
-//   rmProductId: p.rmProductId,
+//   mrProductId: p.mrProductId,
 //   name: p.name,
 //   description: p.description,
 //   category: p.category,
@@ -276,7 +276,7 @@ export const getAllCategorys = async (req, res) => {
 //       // ✅ PRODUCTS (OPTIMIZED)
 //       ProductModel.find(filter)
 //         .select(`
-//           _id rmProductId name description category subCategory 
+//           _id mrProductId name description category subCategory 
 //           variants gstPercent status images thumbnails createdAt label
 //         `)
 //         .populate("category", "name")
@@ -330,7 +330,7 @@ export const getAllCategorys = async (req, res) => {
 //     // ================= SAME MAPPING (NO CHANGE ✅) =================
 //     const products = productData.map((p) => ({
 //       _id: p._id,
-//       rmProductId: p.rmProductId,
+//       mrProductId: p.mrProductId,
 //       name: p.name,
 //       description: p.description,
 //       category: p.category,
@@ -434,7 +434,7 @@ export const getAllProducts2 = async (req, res) => {
       // product data
       ProductModel.find(filter)
         .select(`
-          _id rmProductId name slug description shortDesc category subCategory 
+          _id mrProductId name slug description shortDesc category subCategory 
           variants gstPercent status images thumbnails createdAt label totalReviews
         `)
         .populate("category", "name")
@@ -484,7 +484,7 @@ export const getAllProducts2 = async (req, res) => {
     // ================= MAP PRODUCTS =================
     const products = productData.map((p) => ({
       _id: p._id,
-      rmProductId: p.rmProductId,
+      mrProductId: p.mrProductId,
       slug:p.slug,
       name: p.name,
       description: p.description,
@@ -591,7 +591,7 @@ if (sortBy) {
 
       ProductModel.find(filter)
         .select(`
-          _id rmProductId name slug description  shortDesc
+          _id mrProductId name slug description  shortDesc
           variants gstPercent status images createdAt label totalReviews averageRating customization
         `)
         .lean()
@@ -603,7 +603,7 @@ if (sortBy) {
     // ✅ SAME DATA (nothing removed)
     const products = productData.map((p) => ({
       _id: p._id,
-      rmProductId: p.rmProductId,
+      mrProductId: p.mrProductId,
       slug: p.slug,
       name: p.name,
       description: p.description,
@@ -716,7 +716,7 @@ averageRating: p.averageRating || 0,
 
 //     const products = productData.map((p) => ({
 //       _id: p._id,
-//       rmProductId: p.rmProductId,
+//       mrProductId: p.mrProductId,
 //       name: p.name,
 //       description: p.description,
 //       category: p.category,
@@ -1009,7 +1009,7 @@ export const applyCoupon = async (req, res) => {
 //     const formattedProduct = {
 //       _id: product._id,
 //       id: product._id,
-//       rmProductId: product.rmProductId,
+//       mrProductId: product.mrProductId,
 //       name: product.name,
 //       description: product.description,
 //       category: product.category,
@@ -1260,7 +1260,7 @@ export const checkCouponActiveOrNot = async (req, res) => {
 
 //     const products = productData.map((p) => ({
 //       _id: p._id,
-//       rmProductId: p.rmProductId,
+//       mrProductId: p.mrProductId,
 //       name: p.name,
 //       description: p.description,
 //       category: p.category,

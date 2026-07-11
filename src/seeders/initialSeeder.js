@@ -42,9 +42,9 @@ export const runInitialSeeder = async () => {
     roles: roleDocs[USER_ROLE.SUPER_ADMIN]._id,
   });
 
-  if (!superAdmin) {
-    const passwordHash = await bcrypt.hash(config.password, 12);
+  const passwordHash = await bcrypt.hash(config.password, 12);
 
+  if (!superAdmin) {
     superAdmin = await UserModel.create({
       fullName: config.fullName,
       mobile: config.mobile,
@@ -56,7 +56,16 @@ export const runInitialSeeder = async () => {
 
     console.log("✅ Super Admin created");
   } else {
-    console.log("ℹ️ Super Admin already exists");
+    superAdmin.fullName = config.fullName;
+    superAdmin.mobile = config.mobile;
+    superAdmin.email = config.email;
+    superAdmin.passwordHash = passwordHash;
+    superAdmin.isBlocked = false;
+    if (!superAdmin.roles?.length) {
+      superAdmin.roles = [roleDocs[USER_ROLE.SUPER_ADMIN]._id];
+    }
+    await superAdmin.save();
+    console.log("✅ Super Admin credentials synced from env");
   }
 
   /* --------------------------------------------------

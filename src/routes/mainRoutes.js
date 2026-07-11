@@ -16,7 +16,7 @@ import cartRoutes from "./customer/cart.routes.js";
 import customerOrdersRoutes from "./customer/customer.order.routes.js";
 import wishListRoutes from "./customer/wishlist.routes.js";
 import blogsRoutes from "../routes/blog.routes.js";
-import cmsPageRoutes from "../routes/cmsPage.routes.js";
+// import cmsPageRoutes from "../routes/cmsPage.routes.js";
 import HomePageRoutes from "../routes/homePage.routes.js";
 import ContactUsRoutes from "../routes/contact.routes.js";
 import JobRoutes from "../routes/job.routes.js";
@@ -28,17 +28,17 @@ import enquiryRoutes from "../routes/enquiry.routes.js";
 import BannerRoutes from "../routes/banner.routes.js";
 import AnalyticsRoutes from "../routes/analytics.routes.js";
 import paymentRoutes from "../routes/payment.routes.js";
+import paymentGatewayRoutes from "./admin/paymentGateway.routes.js";
+import languagePreferenceRoutes from "./admin/languagePreference.routes.js";
 import singleRoutes from "../routes/admin/single.routes.js";
 
 
-
-// import { getUserStores } from "../middlewares/getUserStores.js";
-import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
 /* ===================== PUBLIC ROUTES ===================== */
 // No auth required for login / signup
+console.log("Auth mounted on /auth");
 router.use("/auth", authRoutes);
 router.use("/customer/auth", customerAuthRoutes);
 router.use("/public/products", publicProductRoutes);
@@ -63,6 +63,7 @@ router.use("/admin/enquiries", enquiryRoutes);
 
 // Now all /admin/... routes automatically have req.user + req.allowedStores
 router.use("/admin/users", adminUserRoutes);
+router.use("/admin/payment-gateways", paymentGatewayRoutes);
 router.use("/admin/single", singleRoutes);
 router.use("/admin/analytics", AnalyticsRoutes);
 router.use("/admin/modules",moduleRoutes );
@@ -76,5 +77,6 @@ router.use("/admin/orders", adminOrderRoutes);
 router.use("/admin/module-permissions", permissionRoutes);
 router.use("/admin/roles", roleRoutes);
 router.use("/admin/customers", customerRoutes);
+router.use("/admin/language-preferences", languagePreferenceRoutes);
 
 export default router;

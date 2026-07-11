@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 
 const contentSchema = new mongoose.Schema({
 
-  rmContentId:{
+  mrContentId:{
     type:String,
     required:true
   },

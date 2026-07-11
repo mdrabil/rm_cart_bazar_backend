@@ -7,7 +7,7 @@ import {
   USER_ROLE,
 } from "../constants/enums.js";
 
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 
 
@@ -161,7 +161,7 @@ const customizationSchema = new mongoose.Schema(
 
 const productSchema = new mongoose.Schema(
   {
-    rmProductId: {
+    mrProductId: {
       type:   String,
       unique: true,
       index:  true,
@@ -290,13 +290,13 @@ const productSchema = new mongoose.Schema(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pre-save: auto-generate rmProductId
+// Pre-save: auto-generate mrProductId
 // ─────────────────────────────────────────────────────────────────────────────
 
 productSchema.pre("save", async function (next) {
   try {
-    if (!this.rmProductId) {
-      this.rmProductId = await generateRMId("RMP", "PRODUCT");
+    if (!this.mrProductId) {
+      this.mrProductId = await generateMRId("MRP", "PRODUCT");
     }
     next();
   } catch (error) {
@@ -325,5 +325,8 @@ productSchema.pre("save", function (next) {
   this.customization.layers = unique;
   next();
 });
+
+productSchema.index({ status: 1, createdAt: -1 });
+productSchema.index({ store: 1, status: 1 });
 
 export default mongoose.model("Product", productSchema);

@@ -1,5 +1,5 @@
 // // import CMS from "../models/cms.model.js";
-// // import { generateRMId } from "../utils/rmId.js";
+// // import { generateMRId } from "../utils/mrId.js";
 
 
 
@@ -188,12 +188,12 @@
 
 // //     }
 
-// //     const rmContentId = await generateRMId("RMC","CMS_CONTENT");
+// //     const mrContentId = await generateMRId("MRC","CMS_CONTENT");
 
 
 // //     cms[key].contents.push({
 
-// //       rmContentId,
+// //       mrContentId,
 // //       title,
 // //       description
 
@@ -205,7 +205,7 @@
 // //     res.json({
 // //       success:true,
 // //       message:"Content added",
-// //       rmContentId
+// //       mrContentId
 // //     });
 
 // //   }catch(err){
@@ -257,7 +257,7 @@
 // //     const cms = await CMS.findOne();
 
 // //     const content = cms[key].contents.find(
-// //       c => c.rmContentId === contentId
+// //       c => c.mrContentId === contentId
 // //     );
 
 // //     if(!content){
@@ -318,7 +318,7 @@
 // //     const cms = await CMS.findOne();
 
 // //     cms[key].contents = cms[key].contents.filter(
-// //       c => c.rmContentId !== contentId
+// //       c => c.mrContentId !== contentId
 // //     );
 
 // //     await cms.save();
@@ -343,7 +343,7 @@
 
 
 // import CMS from "../models/cms.model.js";
-// import { generateRMId } from "../utils/rmId.js";
+// import { generateMRId } from "../utils/mrId.js";
 
 // /* helper */
 
@@ -508,10 +508,10 @@
 //       });
 //     }
 
-//     const newId = generateRMId(type,type);
+//     const newId = generateMRId(type,type);
 
 //     const newContent = {
-//       rmContentId: newId,
+//       mrContentId: newId,
 //       title,
 //       description,
 //     };
@@ -574,7 +574,7 @@
 //     }
 
 //     const content = page.contents.find(
-//       (c) => c.rmContentId === contentId
+//       (c) => c.mrContentId === contentId
 //     );
 
 //     if (!content) {
@@ -634,7 +634,7 @@
 //     }
 
 //     const index = page.contents.findIndex(
-//       (c) => c.rmContentId === contentId
+//       (c) => c.mrContentId === contentId
 //     );
 
 //     if (index === -1) {
@@ -667,7 +667,7 @@
 
 
 import CMS from "../models/cms.model.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 // ===========================
 // TYPE MAP
@@ -853,9 +853,9 @@ export const addCmsContent = async (req, res) => {
     if (!cms[field].contents) cms[field].contents = [];
 
     // generate RMId
-    const newId = await generateRMId(prefixMap[field]);
+    const newId = await generateMRId(prefixMap[field]);
 
-    const newContent = { rmContentId: newId, title, description };
+    const newContent = { mrContentId: newId, title, description };
     cms[field].contents.push(newContent);
 
     await cms.save();
@@ -885,7 +885,7 @@ export const updateCmsContent = async (req, res) => {
 
     if (!cms || !cms[field]) return res.status(404).json({ success: false, message: "CMS page not found" });
 
-    const content = cms[field].contents.find(c => c.rmContentId === contentId);
+    const content = cms[field].contents.find(c => c.mrContentId === contentId);
 
     if (!content) return res.status(404).json({ success: false, message: "Content not found" });
 
@@ -915,7 +915,7 @@ export const deleteCmsContent = async (req, res) => {
 
     if (!cms || !cms[field]) return res.status(404).json({ success: false, message: "CMS page not found" });
 
-    const index = cms[field].contents.findIndex(c => c.rmContentId === contentId);
+    const index = cms[field].contents.findIndex(c => c.mrContentId === contentId);
 
     if (index === -1) return res.status(404).json({ success: false, message: "Content not found" });
 

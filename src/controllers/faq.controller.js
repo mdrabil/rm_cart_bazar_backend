@@ -1,5 +1,5 @@
 import Faq from "../models/Faq.model.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 
 // CREATE OR UPDATE FAQ PAGE
@@ -143,12 +143,12 @@ export const addFaq = async (req, res) => {
       });
     }
 
-    const rmFaqId = await generateRMId("FAQ", "FAQ");
+    const mrFaqId = await generateMRId("FAQ", "FAQ");
 
     const newFaq = {
       question,
       answer,
-      rmFaqId,
+      mrFaqId,
     };
 
     faqPage.faqs.push(newFaq);

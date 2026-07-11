@@ -2,7 +2,7 @@
 
 import mongoose from "mongoose";
 import { MODULE_KEY } from "../constants/enums.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 const modulePermissionSchema = new mongoose.Schema(
   {
@@ -13,7 +13,7 @@ const modulePermissionSchema = new mongoose.Schema(
       index: true,
     },
 
-    rmModulePrms: {
+    mrModulePrms: {
       type: String,
       unique: true,
       index: true,
@@ -42,8 +42,8 @@ modulePermissionSchema.index({ role: 1, moduleKey: 1 }, { unique: true });
 
 // ✅ save() case
 modulePermissionSchema.pre("save", async function (next) {
-  if (!this.rmModulePrms) {
-    this.rmModulePrms = await generateRMId("MODPRMS", "MODULEPERMISSION");
+  if (!this.mrModulePrms) {
+    this.mrModulePrms = await generateMRId("MODPRMS", "MODULEPERMISSION");
   }
   next();
 });
@@ -53,8 +53,8 @@ modulePermissionSchema.pre("save", async function (next) {
 // ✅ insertMany() case
 modulePermissionSchema.pre("insertMany", async function (next, docs) {
   for (let doc of docs) {
-    if (!doc.rmModulePrms) {
-     doc.rmModulePrms = await generateRMId("MODPRMS", "MODULEPERMISSION");
+    if (!doc.mrModulePrms) {
+     doc.mrModulePrms = await generateMRId("MODPRMS", "MODULEPERMISSION");
     }
   }
   next();
@@ -64,14 +64,14 @@ modulePermissionSchema.pre("insertMany", async function (next, docs) {
 modulePermissionSchema.pre("findOneAndUpdate", async function (next) {
   const update = this.getUpdate();
 
-  if (!update.rmModulePrms && !update.$set?.rmModulePrms) {
-    const rmId = await generateRMId("MODPRMS", "MODULEPERMISSION");
+  if (!update.mrModulePrms && !update.$set?.mrModulePrms) {
+    const mrId = await generateMRId("MODPRMS", "MODULEPERMISSION");
 
     this.setUpdate({
       ...update,
       $set: {
         ...update.$set,
-        rmModulePrms: rmId,
+        mrModulePrms: mrId,
       },
     });
   }

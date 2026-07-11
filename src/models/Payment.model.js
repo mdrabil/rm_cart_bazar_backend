@@ -1,9 +1,3 @@
-// ============================
-// STEP 6
-// PAYMENT MODEL
-// models/Payment.js
-// ============================
-
 import mongoose from "mongoose";
 import { PAYMENT_STATUS } from "../constants/enums.js";
 
@@ -18,15 +12,15 @@ const paymentSchema = new mongoose.Schema(
 
     method: String,
 
-    rmPaymentId: {
+    mrPaymentId: {
       type: String,
       unique: true,
     },
 
     paymentMethodType: {
-  type: String,
-  enum: ["card", "upi", "netbanking", "wallet", "emi", "cod"],
-},
+      type: String,
+      enum: ["card", "upi", "netbanking", "wallet", "emi", "cod"],
+    },
 
     transactionId: {
       type: String,
@@ -36,8 +30,16 @@ const paymentSchema = new mongoose.Schema(
 
     gatewayOrderId: String,
 
-    status: { type: String, enum: Object.values(PAYMENT_STATUS), default: PAYMENT_STATUS.INITIATED },
-  
+    gatewayName: {
+      type: String,
+      default: "Razorpay",
+    },
+
+    status: {
+      type: String,
+      enum: Object.values(PAYMENT_STATUS),
+      default: PAYMENT_STATUS.PENDING,
+    },
 
     customer: {
       name: String,
@@ -45,14 +47,19 @@ const paymentSchema = new mongoose.Schema(
       phone: String,
     },
 
-    gatewayResponse: Object,
+    gatewayResponse: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
 
-    failureReason: String,
+    failureReason: {
+      type: String,
+      default: "",
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-export default mongoose.model(
-  "Payment",
-  paymentSchema
-);
+export default mongoose.model("Payment", paymentSchema);

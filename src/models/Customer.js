@@ -30,7 +30,7 @@ const addressSchema = new mongoose.Schema(
 
 const customerSchema = new mongoose.Schema(
   {
-    rmCustomerId: { type: String, unique: true, index: true },
+    mrCustomerId: { type: String, unique: true, index: true },
 logo:String,
     fullName: { type: String, required: true },
     email: { type: String, unique: true, sparse: true },

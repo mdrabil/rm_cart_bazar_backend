@@ -4,7 +4,7 @@ import { COUPON_TYPE, COUPON_STATUS } from "../constants/enums.js";
 const couponSchema = new mongoose.Schema(
   {
     code: { type: String, required: true, unique: true, uppercase: true, index: true },
-    rmCouponId: { type: String, unique: true, index: true },
+    mrCouponId: { type: String, unique: true, index: true },
     title: { type: String, required: true },
     type: { type: String, enum: Object.values(COUPON_TYPE), required: true },
     value: { type: Number, required: true },

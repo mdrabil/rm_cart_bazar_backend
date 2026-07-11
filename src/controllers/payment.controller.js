@@ -1,8 +1,150 @@
+﻿
+import PaymentService from "../services/payment/paymentManager.js";
+import {
+  buildDeepLinkRedirectHtml,
+  escapeHtml,
+  setPaymentPageHeaders,
+} from "../services/payment/gateways/checkoutPageUtils.js";
 
-import crypto from "crypto";
+// Re-export admin controllers from below; customer handlers delegate to PaymentService
+
+export const createPaymentOrderController = async (req, res) => {
+  try {
+    const result = await PaymentService.createOrder(req.user._id, {
+      couponCode: req.body.couponCode,
+      platform: req.body.platform || "website",
+      user: req.user,
+      returnUrl: req.body.returnUrl,
+      cancelUrl: req.body.cancelUrl,
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const verifyPaymentController = async (req, res) => {
+  try {
+    const result = await PaymentService.verifyPayment(
+      req.user._id,
+      req.user,
+      { ...req.body, platform: req.body.platform || "website" }
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const saveFailedPaymentController = async (req, res) => {
+  try {
+    const result = await PaymentService.saveFailedPayment(req.user, {
+      ...req.body,
+      platform: req.body.platform || "website",
+    });
+    return res.status(200).json({
+      success: true,
+      message: "Failed payment saved",
+      ...result,
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const createCheckoutSessionController = async (req, res) => {
+  try {
+    const result = await PaymentService.generateCheckoutSession(
+      req.user._id,
+      req.user,
+      req.body
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const getActiveGatewayController = async (req, res) => {
+  try {
+    const info = await PaymentService.getActiveGatewayInfo(
+      req.query.platform || "website"
+    );
+    return res.json({ success: true, gateway: info });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const paymentWebhookController = async (req, res) => {
+  try {
+    const { gatewayName } = req.params;
+    const result = await PaymentService.handleWebhook(gatewayName, req);
+    return res.json(result);
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const renderCheckoutPageController = async (req, res) => {
+  try {
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
+    const host = req.headers["x-forwarded-host"] || req.get("host");
+    const apiBaseUrl = `${protocol}://${host}`.replace(/\/$/, "");
+
+    const { html, cspDirectives } = await PaymentService.renderCheckoutPage(
+      req.params.sessionId,
+      apiBaseUrl
+    );
+
+    setPaymentPageHeaders(res, cspDirectives);
+    return res.status(200).send(html);
+  } catch (error) {
+    console.error("renderCheckoutPageController:", error);
+    setPaymentPageHeaders(res);
+    return res.status(500).send(
+      `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><title>Payment</title></head><body><h2>Payment unavailable</h2><p>${escapeHtml(error.message || "Unable to load payment page")}</p></body></html>`
+    );
+  }
+};
+
+export const paymentReturnController = async (req, res) => {
+  try {
+    const result = await PaymentService.handlePaymentReturn(
+      req.params.sessionId,
+      req
+    );
+
+    setPaymentPageHeaders(res);
+    return res
+      .status(200)
+      .send(buildDeepLinkRedirectHtml(result.targetUrl));
+  } catch (error) {
+    try {
+      const session = await PaymentService.getCheckoutSession(req.params.sessionId);
+      if (session?.cancelUrl) {
+        const joiner = session.cancelUrl.includes("?") ? "&" : "?";
+        setPaymentPageHeaders(res);
+        return res
+          .status(200)
+          .send(
+            buildDeepLinkRedirectHtml(
+              `${session.cancelUrl}${joiner}status=${error.message === "Payment cancelled" ? "cancelled" : "failed"}`
+            )
+          );
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return res.status(400).send(`<h2>${error.message}</h2>`);
+  }
+};
+
+/* ===== LEGACY IMPORTS â€” admin payment listing below ===== */
 import mongoose from "mongoose";
 
-import { razorpay } from "../config/razorpay.js";
 import { config } from "../config/config.js";
 
 import Cart from "../models/Cart.model.js";
@@ -16,793 +158,10 @@ import StoreModel from "../models/Store.model.js";
 
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants/enums.js";
 
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 import { buildStoreFilter } from "../utils/accessHelper.js";
 
 
-export const createPaymentOrderController = async (req, res) => {
-
-  try {
-
-    const customerId = req.user._id;
-
-    const {
-      couponCode
-    } = req.body;
-
-    const cart = await Cart.findOne({
-      customerId,
-    }).populate("items.productId");
-
-    if (!cart || cart.items.length === 0) {
-      throw new Error("Cart empty");
-    }
-
-    let totalAmount = 0;
-    let gstAmount = 0;
-    let discountAmount = 0;
-
-    // ================= CALCULATE TOTAL =================
-
-    for (const item of cart.items) {
-
-      const product = item.productId;
-
-      const variant =
-        product.variants.id(item.variantId);
-
-      if (!variant) {
-        throw new Error("Variant missing");
-      }
-
-      const itemTotal =
-        Number(variant.sellingPrice) *
-        Number(item.qty);
-
-      const itemGST =
-        (
-          itemTotal *
-          Number(product.gstPercent || 0)
-        ) / 100;
-
-      totalAmount += itemTotal;
-      gstAmount += itemGST;
-    }
-
-
-    if (couponCode) {
-
-      const coupon = await Coupon.findOne({
-        code: couponCode.toUpperCase(),
-        status: "ACTIVE",
-      });
-
-      if (!coupon) {
-        throw new Error("Invalid coupon");
-      }
-
-      const now = new Date();
-
-      if (
-        now < coupon.startDate ||
-        now > coupon.endDate
-      ) {
-        throw new Error("Coupon expired");
-      }
-
-      if (
-        totalAmount <
-        coupon.minOrderAmount
-      ) {
-        throw new Error(
-          "Minimum order amount not reached"
-        );
-      }
-
-      const alreadyUsed =
-        await CouponUsage.findOne({
-          coupon: coupon._id,
-          user: customerId,
-        });
-
-      if (alreadyUsed) {
-        throw new Error(
-          "You already used this coupon"
-        );
-      }
-
-      if (
-        coupon.usageLimit &&
-        coupon.usedCount >= coupon.usageLimit
-      ) {
-        throw new Error(
-          "Coupon usage limit reached"
-        );
-      }
-
-      if (coupon.type === "PERCENT") {
-
-        discountAmount =
-          (totalAmount * coupon.value) / 100;
-
-        if (
-          coupon.maxDiscountAmount &&
-          coupon.maxDiscountAmount > 0
-        ) {
-
-          discountAmount = Math.min(
-            discountAmount,
-            coupon.maxDiscountAmount
-          );
-        }
-
-      } else {
-
-        discountAmount = coupon.value;
-      }
-
-      discountAmount = Math.min(
-        discountAmount,
-        totalAmount
-      );
-
-      discountAmount = Number(
-        discountAmount.toFixed(2)
-      );
-    }
-
-    // ================= FINAL AMOUNT =================
-
-    const payableAmount = Number(
-      (
-        totalAmount +
-        gstAmount -
-        discountAmount
-      ).toFixed(2)
-    );
-
-    // ================= CREATE RAZORPAY ORDER =================
-
-    const razorpayOrder =
-      await razorpay.orders.create({
-
-        amount: payableAmount * 100,
-
-        currency: "INR",
-
-        receipt: `receipt_${Date.now()}`,
-      });
-
-    return res.status(200).json({
-      success: true,
-      order: razorpayOrder,
-    });
-
-  } catch (error) {
-
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// ================= VERIFY PAYMENT =================
-
-export const verifyPaymentController = async (req, res) => {
-
-  const session =
-    await mongoose.startSession();
-
-  session.startTransaction();
-
-  try {
-
-    const customerId = req.user._id;
-
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      deliveryAddress,
-      couponCode,
-      deliveryDate,
-      notes,
-    } = req.body;
-
-    // ================= VERIFY SIGNATURE =================
-
-    const body =
-      razorpay_order_id +
-      "|" +
-      razorpay_payment_id;
-
-    const expectedSignature =
-      crypto
-        .createHmac(
-          "sha256",
-          config.razorpayKeySecret
-        )
-        .update(body)
-        .digest("hex");
-
-    const isAuthentic =
-      expectedSignature ===
-      razorpay_signature;
-
-    if (!isAuthentic) {
-
-      throw new Error(
-        "Payment verification failed"
-      );
-    }
-
-    // ================= DUPLICATE PAYMENT CHECK =================
-
-    const alreadyPaid =
-      await Payment.findOne({
-        transactionId:
-          razorpay_payment_id,
-      });
-
-    if (alreadyPaid) {
-
-      throw new Error(
-        "Payment already processed"
-      );
-    }
-
-    // ================= GET CART =================
-
-    const cart =
-      await Cart.findOne({
-        customerId,
-      })
-        .populate("items.productId")
-        .session(session);
-
-    if (
-      !cart ||
-      cart.items.length === 0
-    ) {
-
-      throw new Error(
-        "Cart empty"
-      );
-    }
-
-    let totalAmount = 0;
-    let gstAmount = 0;
-    let discountAmount = 0;
-
-    const orderItems = [];
-
-    // ================= ITEMS =================
-
-    for (const item of cart.items) {
-
-      const product =
-        item.productId;
-
-      const variant =
-        product.variants.id(
-          item.variantId
-        );
-
-      if (!variant) {
-        throw new Error(
-          "Variant not found"
-        );
-      }
-
-      if (
-        variant.stockQty < item.qty
-      ) {
-
-        throw new Error(
-          `${product.name} out of stock`
-        );
-      }
-
-      const itemTotal =
-        Number(
-          variant.sellingPrice
-        ) *
-        Number(item.qty);
-
-      const itemGST =
-        (
-          itemTotal *
-          Number(
-            product.gstPercent || 0
-          )
-        ) / 100;
-
-      totalAmount += itemTotal;
-      gstAmount += itemGST;
-
-
-  //     const layer = item.layer
-  // ? {
-  //     ...item.layer.toObject?.(),
-  //     isCustomized: !!item.layer?.text?.trim()
-  //   }
-  // : null;
-
-        const layer = item.layer
-  ? {
-      ...(item.layer.toObject?.() || item.layer),
-      isCustomized: !!item.layer?.text?.trim()
-    }
-  : {
-      area: "none",
-      isCustomized: false,
-
-      image:
-        product.images?.[0] ||
-        product.customization?.layers?.[0]?.image ||
-        null
-    };
-
-
-      orderItems.push({
-        productName: product.name,
-        variantLabel: variant.value,
-        sellingPrice:
-          variant.sellingPrice,
-        qty: item.qty,
-        gstPercent:
-          product.gstPercent,
-            // ✅ CUSTOMIZATION
-  layer
-      });
-
-      const stockUpdate =
-        await Product.updateOne(
-          {
-            _id: product._id,
-            "variants._id":
-              variant._id,
-            "variants.stockQty": {
-              $gte: item.qty,
-            },
-          },
-          {
-            $inc: {
-              "variants.$.stockQty":
-                -item.qty,
-            },
-          },
-          { session }
-        );
-
-      if (
-        stockUpdate.modifiedCount === 0
-      ) {
-
-        throw new Error(
-          "Stock update failed"
-        );
-      }
-    }
-
-    // ================= APPLY COUPON DISCOUNT =================
-
-    let coupon = null;
-
-    if (couponCode) {
-
-      coupon =
-        await Coupon.findOne({
-          code:
-            couponCode.toUpperCase(),
-          status: "ACTIVE",
-        }).session(session);
-
-      if (coupon) {
-
-        if (
-          coupon.type === "PERCENT"
-        ) {
-
-          discountAmount =
-            (
-              totalAmount *
-              coupon.value
-            ) / 100;
-
-          if (
-            coupon.maxDiscountAmount &&
-            coupon.maxDiscountAmount > 0
-          ) {
-
-            discountAmount =
-              Math.min(
-                discountAmount,
-                coupon.maxDiscountAmount
-              );
-          }
-
-        } else {
-
-          discountAmount =
-            coupon.value;
-        }
-
-        discountAmount =
-          Math.min(
-            discountAmount,
-            totalAmount
-          );
-
-        discountAmount =
-          Number(
-            discountAmount.toFixed(2)
-          );
-      }
-    }
-
-    // ================= FINAL AMOUNT =================
-
-    const payableAmount =
-      Number(
-        (
-          totalAmount +
-          gstAmount -
-          discountAmount
-        ).toFixed(2)
-      );
-
-    // ================= FETCH PAYMENT DETAILS =================
-
-    const paymentDetails =
-      await razorpay.payments.fetch(
-        razorpay_payment_id
-      );
-
-    const rmPaymentId =
-      await generateRMId(
-        "PAY",
-        "PAYMENT"
-      );
-
-    // ================= CREATE PAYMENT =================
-
-    const paymentArr =
-      await Payment.create(
-        [{
-          amount: payableAmount,
-
-          method: "RAZORPAY",
-
-          paymentMethodType:
-            paymentDetails.method,
-
-          rmPaymentId,
-
-          gatewayOrderId:
-            razorpay_order_id,
-
-          transactionId:
-            razorpay_payment_id,
-
-          status: "SUCCESS",
-
-          customer: {
-            name:
-              req.user.fullName,
-            email:
-              req.user.email,
-            phone:
-              req.user.mobile,
-          },
-
-          gatewayResponse: {
-            razorpay_order_id,
-            razorpay_payment_id,
-            razorpay_signature,
-            payment_method:
-              paymentDetails,
-          },
-        }],
-        { session }
-      );
-
-    const payment =
-      paymentArr[0];
-
-    // ================= SAVE ADDRESS =================
-
-    let isNewAddress = true;
-
-    const existingAddress =
-      req.user.addresses.find(
-        (addr) =>
-          addr.fullAddress ===
-            deliveryAddress.fullAddress &&
-          addr.mobile ===
-            deliveryAddress.mobile &&
-          addr.city ===
-            deliveryAddress.city &&
-          addr.state ===
-            deliveryAddress.state &&
-          addr.pincode ===
-            deliveryAddress.pincode &&
-          addr.type ===
-            deliveryAddress.type
-      );
-
-    if (existingAddress) {
-      isNewAddress = false;
-    }
-
-    if (isNewAddress) {
-
-      await Customer.updateOne(
-        {
-          _id: customerId,
-        },
-        {
-          $push: {
-            addresses: {
-              ...deliveryAddress,
-
-              location: {
-                type: "Point",
-
-                coordinates: [
-                  deliveryAddress.longitude,
-                  deliveryAddress.latitude,
-                ],
-              },
-            },
-          },
-        },
-        { session }
-      );
-    }
-
-    // ================= STORE =================
-
-    const nearestStore =
-      await StoreModel.findOne({
-        "address.location": {
-          $near: {
-            $geometry: {
-              type: "Point",
-
-              coordinates: [
-                deliveryAddress.longitude,
-                deliveryAddress.latitude,
-              ],
-            },
-
-            $maxDistance: 20000000,
-          },
-        },
-      });
-
-    // ================= CREATE ORDER =================
-
-    const rmOrderId =
-      await generateRMId(
-        "ORD",
-        "ORDER"
-      );
-
-    const order =
-      await Order.create(
-        [{
-          rmOrderId,
-
-          customerId,
-
-          store:
-            nearestStore?._id,
-
-          items: orderItems,
-
-          totalAmount,
-
-          gstAmount,
-
-          discountAmount,
-
-          payableAmount,
-
-          paymentMethod:
-            "ONLINE",
-
-          paymentStatus:
-            "PAID",
-
-          payment:
-            payment._id,
-
-          transactionId:
-            razorpay_payment_id,
-
-          deliveryAddress: {
-            ...deliveryAddress,
-
-            location: {
-              type: "Point",
-
-              coordinates: [
-                deliveryAddress.longitude,
-                deliveryAddress.latitude,
-              ],
-            },
-          },
-
-          notes,
-
-          deliveryDate,
-
-          status:
-            ORDER_STATUS.PLACED,
-        }],
-        { session }
-      );
-
-    // ================= LINK PAYMENT =================
-
-    payment.order =
-      order[0]._id;
-
-    await payment.save({
-      session,
-    });
-
-    // ================= SAVE COUPON USAGE =================
-
-    if (coupon) {
-
-      await CouponUsage.create(
-        [{
-          coupon: coupon._id,
-          user: customerId,
-        }],
-        { session }
-      );
-
-      await Coupon.updateOne(
-        {
-          _id: coupon._id,
-        },
-        {
-          $inc: {
-            usedCount: 1,
-          },
-        },
-        { session }
-      );
-    }
-
-    // ================= CLEAR CART =================
-
-    await Cart.updateOne(
-      { customerId },
-      {
-        $set: {
-          items: [],
-        },
-      },
-      { session }
-    );
-
-    const updatedUser =
-      await Customer.findById(
-        customerId
-      );
-
-    await session.commitTransaction();
-
-    session.endSession();
-
-    return res.status(200).json({
-      success: true,
-      message:
-        "Payment successful",
-      orderId:
-        order[0]._id,
-      order: order[0],
-      user: updatedUser,
-    });
-
-  } catch (error) {
-
-    await session.abortTransaction();
-
-    session.endSession();
-
-    return res.status(400).json({
-      success: false,
-      message:
-        error.message,
-    });
-  }
-};
-
-
- export const saveFailedPaymentController = async (req, res) => {
-
-  try {
-
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      reason,
-      amount,
-    } = req.body;
-
-    // ================= FETCH PAYMENT DETAILS =================
-    let paymentMethodType = "UNKNOWN";
-
-    try {
-      const paymentDetails =
-        await razorpay.payments.fetch(
-          razorpay_payment_id
-        );
-
-      paymentMethodType =
-        paymentDetails?.method || "UNKNOWN";
-
-    } catch (err) {
-      console.log("Razorpay fetch failed:", err.message);
-    }
-
-    // ================= CREATE RM ID =================
-    const rmPaymentId =
-      await generateRMId("PAY","PAYMENT");
-
-    // ================= SAVE FAILED PAYMENT =================
-    const payment = await Payment.create({
-      amount: amount || 0,
-
-      method: "RAZORPAY",
-
-      paymentMethodType, // ✅ FIXED HERE
-
-      rmPaymentId,
-
-      gatewayOrderId:
-        razorpay_order_id,
-
-      transactionId:
-        razorpay_payment_id,
-
-      status: "FAILED",
-
-      failureReason: reason,
-
-      customer: {
-        name: req.user?.fullName || req.user?.name,
-        email: req.user?.email,
-        phone: req.user?.mobile,
-      },
-
-      gatewayResponse: {
-        razorpay_order_id,
-        razorpay_payment_id,
-        reason,
-      },
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Failed payment saved",
-      payment,
-    });
-
-  } catch (error) {
-
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
 
 
 // ===============================
@@ -862,7 +221,7 @@ const canViewGateway = isAdmin || isSuperAdmin;
         },
 
         {
-          rmPaymentId: {
+          mrPaymentId: {
             $regex: search,
             $options: "i",
           },
@@ -992,7 +351,7 @@ const canViewGateway = isAdmin || isSuperAdmin;
     //     path: "order",
 
     //     select:
-    //       "rmOrderId store totalAmount payableAmount status",
+    //       "mrOrderId store totalAmount payableAmount status",
 
     //     populate: {
     //       path: "store",
@@ -1003,7 +362,7 @@ const canViewGateway = isAdmin || isSuperAdmin;
     //   })
 
     let selectFields = `
-  rmPaymentId
+  mrPaymentId
   order
   amount
   method
@@ -1026,7 +385,7 @@ const payments = await Payment.find(query)
   .select(selectFields)
   .populate({
     path: "order",
-    select: "rmOrderId store totalAmount payableAmount status",
+    select: "mrOrderId store totalAmount payableAmount status",
     populate: {
       path: "store",
       select: "_id storeName address",
@@ -1094,7 +453,7 @@ export const getNonSuccessPayments = async (req, res) => {
     if (search && search.trim() !== "") {
       query.$or = [
         { transactionId: { $regex: search, $options: "i" } },
-        { rmPaymentId: { $regex: search, $options: "i" } },
+        { mrPaymentId: { $regex: search, $options: "i" } },
         { gatewayOrderId: { $regex: search, $options: "i" } },
         { "customer.name": { $regex: search, $options: "i" } },
         { "customer.email": { $regex: search, $options: "i" } },
@@ -1164,7 +523,7 @@ export const getNonSuccessPayments = async (req, res) => {
 
     // ================= SELECT FIELDS =================
     let selectFields = `
-      rmPaymentId
+      mrPaymentId
       order
       amount
       method
@@ -1189,7 +548,7 @@ export const getNonSuccessPayments = async (req, res) => {
       .select(selectFields)
       .populate({
         path: "order",
-        select: "rmOrderId store totalAmount payableAmount status",
+        select: "mrOrderId store totalAmount payableAmount status",
       })
       .sort(sort)
       .skip((page - 1) * limit)
@@ -1217,7 +576,7 @@ export const getNonSuccessPayments = async (req, res) => {
   }
 };
 
-// ✅ Get single Payment by ID
+// âœ… Get single Payment by ID
 export const getPaymentById = async (req, res) => {
   try {
     const user = req.user;
@@ -1233,7 +592,7 @@ export const getPaymentById = async (req, res) => {
     const payment = await Payment.findById(id)
       .populate({
         path: "order",
-        select: "rmOrderId store totalAmount payableAmount",
+        select: "mrOrderId store totalAmount payableAmount",
         populate: {
           path: "store",
           select: "_id storeName",
@@ -1345,7 +704,7 @@ export const updatePaymentStatus = async (req, res) => {
   }
 };
 
-// ✅ Delete Payment
+// âœ… Delete Payment
 export const deletePayment = async (req, res) => {
   try {
 
@@ -1371,534 +730,3 @@ export const deletePayment = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
-
-
-// export const createPaymentOrderController = async (req, res) => {
-
-//     try {
-
-//       const customerId =
-//         req.user._id;
-
-//       const cart =
-//         await Cart.findOne({
-//           customerId,
-//         }).populate(
-//           "items.productId"
-//         );
-
-//       if (
-//         !cart ||
-//         cart.items.length === 0
-//       ) {
-
-//         throw new Error(
-//           "Cart empty"
-//         );
-//       }
-
-//       let totalAmount = 0;
-
-//       let gstAmount = 0;
-
-//       for (const item of cart.items) {
-
-//         const product =
-//           item.productId;
-
-//         const variant =
-//           product.variants.id(
-//             item.variantId
-//           );
-
-//         if (!variant) {
-
-//           throw new Error(
-//             "Variant missing"
-//           );
-//         }
-
-//         totalAmount +=
-//           Number(
-//             variant.sellingPrice
-//           ) *
-//           Number(item.qty);
-
-//         gstAmount +=
-//           (
-//             Number(
-//               variant.sellingPrice
-//             ) *
-//             Number(item.qty) *
-//             Number(
-//               product.gstPercent || 0
-//             )
-//           ) / 100;
-//       }
-
-//       const payableAmount =
-//         Number(
-//           (
-//             totalAmount +
-//             gstAmount
-//           ).toFixed(2)
-//         );
-
-//       // CREATE RAZORPAY ORDER
-//       const razorpayOrder =
-//         await razorpay.orders.create({
-//           amount:
-//             payableAmount * 100,
-
-//           currency: "INR",
-
-//           receipt:
-//             `receipt_${Date.now()}`,
-//         });
-
-//       return res.status(200).json({
-//         success: true,
-
-//         order: razorpayOrder,
-//       });
-
-//     } catch (error) {
-
-//       return res.status(400).json({
-//         success: false,
-
-//         message:
-//           error.message,
-//       });
-//     }
-//   };
-
-// export const verifyPaymentController = async (req, res) => {
-
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-
-//     const customerId = req.user._id;
-
-//     const {
-//       razorpay_order_id,
-//       razorpay_payment_id,
-//       razorpay_signature,
-//       deliveryAddress,
-//       couponCode,
-//       deliveryDate,
-//       notes,
-//     } = req.body;
-
-//     // ================= VERIFY SIGNATURE =================
-
-//     const body =
-//       razorpay_order_id + "|" + razorpay_payment_id;
-
-//     const expectedSignature = crypto
-//       .createHmac("sha256", config.razorpayKeySecret)
-//       .update(body)
-//       .digest("hex");
-
-//     const isAuthentic =
-//       expectedSignature === razorpay_signature;
-
-//     if (!isAuthentic) {
-
-//       const rmPaymentId = await generateRMId(
-//         "PAY",
-//         "PAYMENT"
-//       );
-
-//       await Payment.create([
-//         {
-//           amount: 0,
-//           method: "RAZORPAY",
-//           rmPaymentId,
-//           gatewayOrderId: razorpay_order_id,
-//           transactionId: razorpay_payment_id,
-//           status: "FAILED",
-//           failureReason: "Signature mismatch",
-//           customer: {
-//             name: req.user.fullName,
-//             email: req.user.email,
-//             phone: req.user.mobile,
-//           },
-//           gatewayResponse: {
-//             razorpay_order_id,
-//             razorpay_payment_id,
-//             razorpay_signature,
-//           },
-//         },
-//       ], { session });
-
-//       throw new Error("Payment verification failed");
-//     }
-
-//     // ================= DUPLICATE CHECK =================
-
-//     const alreadyPaid = await Payment.findOne({
-//       transactionId: razorpay_payment_id,
-//     });
-
-//     if (alreadyPaid) {
-//       throw new Error("Payment already processed");
-//     }
-
-//     // ================= GET CART =================
-
-//     const cart = await Cart.findOne({ customerId })
-//       .populate("items.productId")
-//       .session(session);
-
-//     if (!cart || cart.items.length === 0) {
-//       throw new Error("Cart empty");
-//     }
-
-//     let totalAmount = 0;
-//     let gstAmount = 0;
-//     let discountAmount = 0;
-//     const orderItems = [];
-
-//     for (const item of cart.items) {
-
-//       const product = item.productId;
-//       const variant = product.variants.id(item.variantId);
-
-//       if (!variant) {
-//         throw new Error("Variant not found");
-//       }
-
-//       if (variant.stockQty < item.qty) {
-//         throw new Error(`${product.name} out of stock`);
-//       }
-
-//       const itemTotal =
-//         Number(variant.sellingPrice) * Number(item.qty);
-
-//       const itemGST =
-//         (itemTotal * Number(product.gstPercent || 0)) / 100;
-
-//       totalAmount += itemTotal;
-//       gstAmount += itemGST;
-
-//       orderItems.push({
-//         productName: product.name,
-//         variantLabel: variant.value,
-//         sellingPrice: variant.sellingPrice,
-//         qty: item.qty,
-//         gstPercent: product.gstPercent,
-//       });
-
-//       const stockUpdate = await Product.updateOne(
-//         {
-//           _id: product._id,
-//           "variants._id": variant._id,
-//           "variants.stockQty": { $gte: item.qty },
-//         },
-//         {
-//           $inc: {
-//             "variants.$.stockQty": -item.qty,
-//           },
-//         },
-//         { session }
-//       );
-
-//       if (stockUpdate.modifiedCount === 0) {
-//         throw new Error("Stock update failed");
-//       }
-//     }
-
-//     // ================= COUPON =================
-
-// if (couponCode) {
-
-//   const coupon = await Coupon.findOne({
-//     code: couponCode.toUpperCase(),
-//     status: "ACTIVE",
-//   }).session(session);
-
-//   if (!coupon) {
-//     throw new Error("Invalid coupon");
-//   }
-
-//   const now = new Date();
-
-//   if (
-//     now < coupon.startDate ||
-//     now > coupon.endDate
-//   ) {
-//     throw new Error("Coupon expired");
-//   }
-
-//   if (
-//     totalAmount < coupon.minOrderAmount
-//   ) {
-//     throw new Error(
-//       "Minimum order amount not reached"
-//     );
-//   }
-
-//   const alreadyUsed =
-//     await CouponUsage.findOne({
-//       coupon: coupon._id,
-//       user: customerId,
-//     }).session(session);
-
-//   if (alreadyUsed) {
-//     throw new Error(
-//       "You already used this coupon"
-//     );
-//   }
-
-//   if (
-//     coupon.usageLimit &&
-//     coupon.usedCount >= coupon.usageLimit
-//   ) {
-//     throw new Error(
-//       "Coupon usage limit reached"
-//     );
-//   }
-
-//   if (coupon.type === "PERCENT") {
-
-//     discountAmount =
-//       (totalAmount * coupon.value) / 100;
-
-//     if (
-//       coupon.maxDiscountAmount &&
-//       coupon.maxDiscountAmount > 0
-//     ) {
-
-//       discountAmount = Math.min(
-//         discountAmount,
-//         coupon.maxDiscountAmount
-//       );
-//     }
-
-//   } else {
-
-//     discountAmount = coupon.value;
-//   }
-
-//   discountAmount = Math.min(
-//     discountAmount,
-//     totalAmount
-//   );
-
-//   discountAmount = Number(
-//     discountAmount.toFixed(2)
-//   );
-
-//   const updatedCoupon =
-//     await Coupon.findOneAndUpdate(
-//       {
-//         _id: coupon._id,
-//         $or: [
-//           { usageLimit: { $exists: false } },
-//           { usageLimit: null },
-//           {
-//             usedCount: {
-//               $lt: coupon.usageLimit,
-//             },
-//           },
-//         ],
-//       },
-//       {
-//         $inc: {
-//           usedCount: 1,
-//         },
-//       },
-//       {
-//         new: true,
-//         session,
-//       }
-//     );
-
-//   if (!updatedCoupon) {
-//     throw new Error(
-//       "Coupon usage limit reached"
-//     );
-//   }
-
-//   await CouponUsage.create(
-//     [{
-//       coupon: coupon._id,
-//       user: customerId,
-//     }],
-//     { session }
-//   );
-// }
-
-//     // ================= FINAL AMOUNT =================
-
-//     const payableAmount = Number(
-//       (totalAmount + gstAmount - discountAmount).toFixed(2)
-//     );
-
-//     const rmPaymentId = await generateRMId("PAY", "PAYMENT");
-
-//     const paymentDetails = await razorpay.payments.fetch(
-//   razorpay_payment_id
-// );
-
-//     // ✅ FIXED: Payment created WITH session (IMPORTANT)
-//     const paymentArr = await Payment.create(
-//       [{
-//         amount: payableAmount,
-//         method: "RAZORPAY",
-//           paymentMethodType: paymentDetails.method,
-//         rmPaymentId,
-//         gatewayOrderId: razorpay_order_id,
-//         transactionId: razorpay_payment_id,
-//         status: "SUCCESS",
-//         customer: {
-//           name: req.user.fullName,
-//           email: req.user.email,
-//           phone: req.user.mobile,
-//         },
-//         order: null,
-//         gatewayResponse: {
-//           razorpay_order_id,
-//           razorpay_payment_id,
-//           razorpay_signature,
-//             payment_method: paymentDetails, 
-//         },
-//       }],
-//       { session }
-//     );
-
-//     const payment = paymentArr[0];
-
-//     // ================= SAVE NEW ADDRESS =================
-
-//     let isNewAddress = true;
-
-//     const existingAddress = req.user.addresses.find(
-//       (addr) =>
-//         addr.fullAddress === deliveryAddress.fullAddress &&
-//         addr.mobile === deliveryAddress.mobile &&
-//         addr.city === deliveryAddress.city &&
-//         addr.state === deliveryAddress.state &&
-//         addr.pincode === deliveryAddress.pincode &&
-//         addr.type === deliveryAddress.type
-//     );
-
-//     if (existingAddress) {
-//       isNewAddress = false;
-//     }
-
-//     if (isNewAddress) {
-//       await Customer.updateOne(
-//         { _id: customerId },
-//         {
-//           $push: {
-//             addresses: {
-//               ...deliveryAddress,
-//               location: {
-//                 type: "Point",
-//                 coordinates: [
-//                   deliveryAddress.longitude,
-//                   deliveryAddress.latitude,
-//                 ],
-//               },
-//             },
-//           },
-//         },
-//         { session }
-//       );
-//     }
-
-//     // ================= NEAREST STORE =================
-
-//     const nearestStore = await StoreModel.findOne({
-//       "address.location": {
-//         $near: {
-//           $geometry: {
-//             type: "Point",
-//             coordinates: [
-//               deliveryAddress.longitude,
-//               deliveryAddress.latitude,
-//             ],
-//           },
-//           $maxDistance: 20000000,
-//         },
-//       },
-//     });
-
-//     // ================= CREATE ORDER =================
-
-//     const rmOrderId = await generateRMId("ORD", "ORDER");
-
-//     const order = await Order.create(
-//       [{
-//         rmOrderId,
-//         customerId,
-//         store: nearestStore?._id,
-//         items: orderItems,
-//         totalAmount,
-//         gstAmount,
-//         discountAmount,
-//         payableAmount,
-//         paymentMethod: "ONLINE",
-//         paymentStatus: "PAID",
-//         payment: payment._id,
-//         transactionId: razorpay_payment_id,
-//         deliveryAddress: {
-//           ...deliveryAddress,
-//           location: {
-//             type: "Point",
-//             coordinates: [
-//               deliveryAddress.longitude,
-//               deliveryAddress.latitude,
-//             ],
-//           },
-//         },
-//         notes,
-//         deliveryDate,
-//         status: ORDER_STATUS.PLACED,
-//       }],
-//       { session }
-//     );
-
-//     // ================= FIX: LINK PAYMENT TO ORDER (PROPER WAY) =================
-
-//     payment.order = order[0]._id;
-//     await payment.save({ session });
-
-//     // ================= CLEAR CART =================
-
-//     await Cart.updateOne(
-//       { customerId },
-//       { $set: { items: [] } },
-//       { session }
-//     );
-
-//     const updatedUser = await Customer.findById(customerId);
-
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Payment successful",
-//       orderId: order[0]._id,
-//       order: order[0],
-//       user: updatedUser,
-//     });
-
-//   } catch (error) {
-
-//     await session.abortTransaction();
-//     session.endSession();
-
-//     return res.status(400).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };

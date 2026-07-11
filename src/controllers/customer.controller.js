@@ -2,7 +2,7 @@
 import Joi from "joi";
 import mongoose from "mongoose";
 import Customer from "../models/Customer.js";
-import { generateRMId, generateTransactionId } from "../utils/rmId.js";
+import { generateMRId, generateTransactionId } from "../utils/mrId.js";
 import CartModel from "../models/Cart.model.js";
 import { customerValidator } from "../validations/customer.validator.js";
 import bcrypt from "bcryptjs";
@@ -17,6 +17,7 @@ import UserModel from "../models/User.model.js";
 import cloudinary from "../config/cloudinaryConfig.js";
 import MailVarificationModel from "../models/MailVarification.model.js";
 import { sendEmail } from "../constants/mailer.js";
+import { getOrCreateLanguagePreference } from "./languagePreference.controller.js";
 
 // ✅ Validation Schemas
 const addressSchema = Joi.object({
@@ -246,9 +247,9 @@ if (!emailVerification) {
     const hashedPassword =
       await bcrypt.hash(password, 12);
 
-    const rmCustomerId =
-      await generateRMId(
-        "RMCU",
+    const mrCustomerId =
+      await generateMRId(
+        "MRCU",
         "CUSTOMER"
       );
 
@@ -268,7 +269,7 @@ if (!emailVerification) {
 
             password: hashedPassword,
 
-            rmCustomerId,
+            mrCustomerId,
 
             role: "CUSTOMER",
           },
@@ -336,6 +337,8 @@ if (!emailVerification) {
       role: "CUSTOMER",
     });
 
+    const languagePreference = await getOrCreateLanguagePreference(customer._id);
+
     return res.status(201).json({
       success: true,
 
@@ -347,6 +350,12 @@ if (!emailVerification) {
       user: customer,
 
       items: formatCart(cart),
+
+      languagePreference: {
+        customerId: languagePreference.customerId,
+        languageType: languagePreference.languageType,
+        status: languagePreference.status,
+      },
     });
   } catch (err) {
     await session.abortTransaction();
@@ -537,6 +546,8 @@ export const customerLogin = async (req, res) => {
     // remove password
     customer.password = undefined;
 
+    const languagePreference = await getOrCreateLanguagePreference(customer._id);
+
     // ─────────────────────────
     // RESPONSE
     // ─────────────────────────
@@ -551,6 +562,12 @@ export const customerLogin = async (req, res) => {
       user: customer,
 
       items: formatCart(cart),
+
+      languagePreference: {
+        customerId: languagePreference.customerId,
+        languageType: languagePreference.languageType,
+        status: languagePreference.status,
+      },
     });
   } catch (err) {
     console.error("Login Error:", err);
@@ -1680,14 +1697,14 @@ export const clearCartByAdmin = async (req, res) => {
 //       throw new Error("Invalid payable amount calculation");
 //     }
 
-//     const rmOrderId = await generateRMId("ORD","ORDER")
+//     const mrOrderId = await generateMRId("ORD","ORDER")
 //     const transactionId = generateTransactionId() || null
 //     // ================= CREATE ORDER =================
 //     const order = await OrderModel.create(
 //       [
 //         {
 //           customer: customerId,
-//           rmOrderId,
+//           mrOrderId,
 //           store: storeId,
 //           items: orderItems,
 //           totalAmount,

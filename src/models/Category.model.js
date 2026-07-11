@@ -1,14 +1,14 @@
 // import mongoose from "mongoose";
 // import { CATEGORY_STATUS, USER_ROLE } from "../constants/enums.js";
-// import { generateRMId } from "../utils/rmId.js";
+// import { generateMRId } from "../utils/mrId.js";
 
 // const categorySchema = new mongoose.Schema(
 //   {
-//     rmCategoryId: {
+//     mrCategoryId: {
 //       type: String,
 //       unique: true,
 //       index: true,
-//       default: () => generateRMId("RMC")
+//       default: () => generateMRId("MRC")
 //     },
 
 //     name: {
@@ -52,7 +52,7 @@ import { CATEGORY_STATUS } from "../constants/enums.js";
 
 const categorySchema = new mongoose.Schema(
   {
-    rmCategoryId: {
+    mrCategoryId: {
       type: String,
       unique: true,
       index: true

@@ -1,6 +1,6 @@
 import Otp from "../models/otp.model.js";
 
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 import Joi from "joi";
 import moment from "moment";
 import { config } from "../config/config.js";
@@ -41,7 +41,7 @@ export const sendOtp = async (req, res) => {
 
     return res.json({
       message: `OTP sent successfully to user ${user.fullName}`,
-      otpId: otpDoc.rmOtpId,
+      otpId: otpDoc.mrOtpId,
       expiresAt
     });
 
@@ -82,7 +82,7 @@ export const verifyOtp = async (req, res) => {
     otpRecord.isUsed = true;
     await otpRecord.save();
 
-    return res.json({ message: "OTP verified successfully", otpId: otpRecord.rmOtpId });
+    return res.json({ message: "OTP verified successfully", otpId: otpRecord.mrOtpId });
 
   } catch (err) {
     console.error(err);

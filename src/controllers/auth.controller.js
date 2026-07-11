@@ -7,6 +7,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.model.js";
 import { generateToken } from "../utils/jwt.js";
+import { registerUserSchema } from "../validators/auth.validator.js";
+import { hashPassword } from "../utils/passwordUtils.js";
 
 
 
@@ -15,19 +17,10 @@ export const registerUser = async (req, res) => {
   try {
     const { fullName, email, mobile, password, roles } = req.body;
 
-    const schema = Joi.object({
-  fullName: Joi.string().required(),
-  email: Joi.string().email(),
-  mobile: Joi.string().required(),
-  password: Joi.string().min(6).required(),
-  roles: Joi.array().items(Joi.string().valid("SUPER_ADMIN","VENDOR","STORE_MANAGER","CHEF","RIDER","CUSTOMER")).default(["CUSTOMER"])
-});
+    const { error } = registerUserSchema.validate(req.body);
+    if (error) return res.status(400).json({ message: error.details[0].message });
 
-const { value, error } = schema.validate(req.body);
-if (error) return res.status(400).json({ message: error.details[0].message });
-
-
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hashPassword(password);
 
     const user = await User.create({
       fullName,
@@ -217,7 +210,7 @@ if (error) return res.status(400).json({ message: error.details[0].message });
 //         mobile: user.mobile,
 //         email: user.email,
 //         roles: roleNames,
-//         rmId: user.rmId,
+//         mrId: user.mrId,
 //       },
 //       accessToken: tokens.accessToken,
 //       permissions:permissions
@@ -236,6 +229,7 @@ if (error) return res.status(400).json({ message: error.details[0].message });
 export const loginUser = async (req, res) => {
   try {
     const { mobile, password } = req.body;
+    console.log("mobile",mobile)
 
     if (!mobile || !password) {
       return res.status(400).json({
@@ -304,7 +298,7 @@ export const loginUser = async (req, res) => {
         email: user.email,
         roles: roleNames,
         isSuperAdmin,
-        rmId: user.rmId,
+        mrId: user.mrId,
       },
       accessToken: tokens.accessToken,
     });
@@ -388,12 +382,17 @@ export const refreshToken = async (req, res) => {
     if (!refreshToken) return res.status(400).json({ message: "Refresh token required" });
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(decoded.userId).populate("roles", "role");
     if (!user || user.refreshToken !== refreshToken) {
       return res.status(401).json({ message: "Invalid refresh token" });
     }
 
-    const tokens = generateToken(user);
+    const roleNames = user.roles.map((r) => r.role);
+    const tokens = generateToken({
+      userId: user._id,
+      roles: roleNames,
+      isSuperAdmin: roleNames.includes("SUPER_ADMIN"),
+    });
     user.refreshToken = tokens.refreshToken;
     await user.save();
 

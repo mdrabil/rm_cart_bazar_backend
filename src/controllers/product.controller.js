@@ -3,7 +3,7 @@ import Store from "../models/Store.model.js";
 import Joi from "joi";
 import { USER_ROLE, PRODUCT_STATUS } from "../constants/enums.js";
 import cloudinary from "../config/cloudinaryConfig.js";
-import { generateProductSlug } from "../utils/rmId.js";
+import { generateProductSlug } from "../utils/mrId.js";
 import { buildStoreFilter } from "../utils/accessHelper.js";
 
 // 🔹 Joi Validation Schemas
@@ -532,7 +532,7 @@ export const getAllProducts = async (req, res) => {
 
     // ✅ DATA
     const products = await Product.find(finalFilter)
-       .populate("store", "storeName rmStoreId")
+       .populate("store", "storeName mrStoreId")
       .populate("category", "name")
       .populate("subCategory", "name")
       .skip((page - 1) * limit)

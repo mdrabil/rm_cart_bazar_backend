@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const faqItemSchema = new mongoose.Schema(
   {
-    rmFaqId: {
+    mrFaqId: {
       type: String,
       required: true,
       unique: true,

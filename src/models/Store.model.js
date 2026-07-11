@@ -1,11 +1,11 @@
 // models/Store.js
 import mongoose from "mongoose";
 import { STORE_OWNERSHIP_MODEL, STORE_STATUS, VARIFICATION_TYPE } from "../constants/enums.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 const storeSchema = new mongoose.Schema(
   {
-    rmStoreId: {
+    mrStoreId: {
       type: String,
       unique: true,
       index: true,
@@ -106,8 +106,8 @@ verificationStatus:  {
 
 
 storeSchema.pre("save", async function (next) {
-  if (!this.rmStoreId) {
-    this.rmStoreId = await generateRMId("STR","STORE");
+  if (!this.mrStoreId) {
+    this.mrStoreId = await generateMRId("STR","STORE");
   }
   next();
 });

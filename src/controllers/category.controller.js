@@ -1,7 +1,7 @@
 import Category from "../models/Category.model.js";
 import Joi from "joi";
 import { USER_ROLE, CATEGORY_STATUS } from "../constants/enums.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 import cloudinary from "../config/cloudinaryConfig.js";
 import mongoose from "mongoose";
 
@@ -66,7 +66,7 @@ export const createCategory = async (req, res) => {
     /* ===========================
        ✅ GENERATE CUSTOM ID
     ============================ */
-    const rmCategoryId = await generateRMId("CAT", "CATEGORY");
+    const mrCategoryId = await generateMRId("CAT", "CATEGORY");
 
     /* ===========================
        ✅ HANDLE IMAGE
@@ -87,7 +87,7 @@ export const createCategory = async (req, res) => {
       name: value.name,
       parentCategory,
       status: value.status,
-      rmCategoryId,
+      mrCategoryId,
       image: imageData,
       createdBy: userId
     });

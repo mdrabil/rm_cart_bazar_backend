@@ -1,7 +1,7 @@
 import Job from "../models/Jobs.model.js";
 import JobApplicationModel from "../models/JobApplication.model.js";
 import cloudinary from "../config/cloudinaryConfig.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 /* =========================
    CREATE JOB
@@ -53,10 +53,10 @@ export const createJob = async (req, res) => {
       });
     }
 
-    const rmJobId = await generateRMId('Job',"Job")
+    const mrJobId = await generateMRId('Job',"Job")
 
     const job = await Job.create({
-      rmJobId,
+      mrJobId,
       title: title.trim(),
       description: description.trim(),
       salary: salary?.trim() || "Not disclosed",
@@ -310,10 +310,10 @@ console.log("body:", req.body);
     // CREATE APPLICATION
     // ======================
 
-    const rmAppliedJobId = await generateRMId("AplJob","ApplicaitonJobs")
+    const mrAppliedJobId = await generateMRId("AplJob","ApplicaitonJobs")
 
     const application = await JobApplicationModel.create({
-      rmAppliedJobId,
+      mrAppliedJobId,
       jobId,
       name,
       email,

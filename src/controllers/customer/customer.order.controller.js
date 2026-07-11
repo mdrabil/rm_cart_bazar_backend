@@ -5,7 +5,7 @@ import Coupon from "../../models/Coupon.model.js";
 import CouponUsage from "../../models/CouponUsage.model.js";
 import Product from "../../models/Product.model.js";
 import { ORDER_STATUS } from "../../constants/enums.js";
-import { generateRMId, generateTransactionId } from "../../utils/rmId.js";
+import { generateMRId, generateTransactionId } from "../../utils/mrId.js";
 import Customer from "../../models/Customer.js";
 import { getDistanceKm } from "../../utils/getDistanceKm.js";
 import StoreModel from "../../models/Store.model.js";
@@ -158,7 +158,7 @@ import StoreModel from "../../models/Store.model.js";
 //     const map = { cash: "COD", cod: "COD", online: "ONLINE", upi: "UPI", wallet: "WALLET" };
 //     const finalPaymentMethod = map[paymentMethod?.toLowerCase()] || "COD";
 
-//     const rmOrderId = await generateRMId("ORD", "ORDER");
+//     const mrOrderId = await generateMRId("ORD", "ORDER");
 //     const transactionId = generateTransactionId() || null;
 
 //     // Default delivery date if not provided
@@ -239,7 +239,7 @@ import StoreModel from "../../models/Store.model.js";
 //     // ================= CREATE ORDER =================
 // const order = await Order.create([
 //   {
-//     rmOrderId,
+//     mrOrderId,
 //     customerId,
 //     store: nearestStore._id,
 
@@ -561,7 +561,7 @@ export const placeOrderController = async (req, res) => {
     const finalPaymentMethod =
       map[paymentMethod?.toLowerCase()] || "COD";
 
-    const rmOrderId = await generateRMId("ORD", "ORDER");
+    const mrOrderId = await generateMRId("ORD", "ORDER");
 
     const transactionId = generateTransactionId() || null;
 
@@ -652,7 +652,7 @@ export const placeOrderController = async (req, res) => {
     const order = await Order.create(
       [
         {
-          rmOrderId,
+          mrOrderId,
 
           customerId,
 
@@ -820,7 +820,7 @@ if (status && typeof status === "string" && status.trim() !== "") {
     if (search && typeof search === "string" && search.trim() !== "") {
       const s = search.trim().toLowerCase();
       filter.$or = [
-        { rmOrderId: { $regex: s, $options: "i" } },
+        { mrOrderId: { $regex: s, $options: "i" } },
         { status: { $regex: s, $options: "i" } }
       ];
     }
@@ -1003,7 +1003,7 @@ export const getSingleOrderController = async (req, res) => {
 
 //     if (search) {
 //   filter.$or = [
-//     { rmOrderId: { $regex: search, $options: "i" } },
+//     { mrOrderId: { $regex: search, $options: "i" } },
 //     { status: { $regex: search, $options: "i" } }
 //   ];
 // }

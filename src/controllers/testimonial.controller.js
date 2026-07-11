@@ -1,7 +1,7 @@
 import cloudinary from "../config/cloudinaryConfig.js";
 import Testimonial from "../models/Testimonial.model.js";
 
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 // CREATE TESTIMONIAL
 
@@ -44,12 +44,12 @@ export const createTestimonial = async (req, res) => {
     // 5️⃣ Upload image to Cloudinary
     uploadedImage = await cloudinary.uploader.upload(req.file.path, { folder: "testimonials" });
 
-    // 6️⃣ Generate unique RM ID
-    const rmTestimonialId = await generateRMId("TSMN", "TESTIMONIAL");
+    // 6️⃣ Generate unique MR ID
+    const mrTestimonialId = await generateMRId("TSMN", "TESTIMONIAL");
 
     // 7️⃣ Create testimonial in MongoDB
     const testimonial = await Testimonial.create({
-      rmTestimonialId,
+      mrTestimonialId,
       user: req.user._id,
       name: name.trim(),
       profession: profession.trim(),

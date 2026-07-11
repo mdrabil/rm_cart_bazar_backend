@@ -1,7 +1,7 @@
 // controllers/banner.controller.js
 import Banner from "../models/Banner.model.js";
 import cloudinary from "../config/cloudinaryConfig.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 /* ================= CREATE ================= */
 export const createBanner = async (req, res) => {
@@ -15,11 +15,11 @@ export const createBanner = async (req, res) => {
       });
     }
 
-      const rmNo = await generateRMId("BNR", "BANNER");
+      const mrNo = await generateMRId("BNR", "BANNER");
 
   const banner = await Banner.create({
   text,
-  rmNo,
+  mrNo,
   status: req.body.status || "ACTIVE", // ✅ added
   image: {
     url: req.file.path,
@@ -62,13 +62,13 @@ export const getAllBanners = async (req, res) => {
 export const getAllBannersApp = async (req, res) => {
   try {
     const banners = await Banner.find({ status: "ACTIVE" })
-      .sort({ rmNo: 1 })
-      .select("text rmNo date image.url status");
+      .sort({ mrNo: 1 })
+      .select("text mrNo date image.url status");
 
     const formatted = banners.map((b) => ({
       _id: b._id,
       text: b.text,
-      rmNo: b.rmNo,
+      mrNo: b.mrNo,
       status: b.status,
       date: b.date,
       image: {
@@ -114,7 +114,7 @@ export const getBannerById = async (req, res) => {
 /* ================= UPDATE ================= */
 export const updateBanner = async (req, res) => {
   try {
-    const { text, rmNo } = req.body;
+    const { text, mrNo } = req.body;
 
     const banner = await Banner.findById(req.params.id);
     if (!banner) {
@@ -136,7 +136,7 @@ export const updateBanner = async (req, res) => {
     }
 
     banner.text = text || banner.text;
-    banner.rmNo = rmNo || banner.rmNo;
+    banner.mrNo = mrNo || banner.mrNo;
     banner.status = req.body.status || banner.status;
 
     await banner.save();

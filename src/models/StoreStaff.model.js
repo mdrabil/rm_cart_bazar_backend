@@ -1,11 +1,11 @@
 // // models/StoreStaff.model.js
 // import mongoose from "mongoose";
 // import { STAFF_USER_ROLE } from "../constants/enums.js";
-// import { generateRMId } from "../utils/rmId.js";
+// import { generateMRId } from "../utils/mrId.js";
 
 // const storeStaffSchema = new mongoose.Schema(
 //   {
-//     rmStaffId: { type: String, unique: true, index: true },
+//     mrStaffId: { type: String, unique: true, index: true },
 
 //   store: {
 //   type: mongoose.Schema.Types.ObjectId,
@@ -32,8 +32,8 @@
 
 // // AUTO ID
 // storeStaffSchema.pre("save", async function (next) {
-//   if (!this.rmStaffId) {
-//     this.rmStaffId = await generateRMId("RMSTF");
+//   if (!this.mrStaffId) {
+//     this.mrStaffId = await generateMRId("MRSTF");
 //   }
 //   next();
 // });
@@ -50,7 +50,7 @@
 
 import mongoose from "mongoose";
 import { STAFF_USER_ROLE } from "../constants/enums.js";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 const socialSchema = new mongoose.Schema(
   {
@@ -63,7 +63,7 @@ const socialSchema = new mongoose.Schema(
 
 const storeStaffSchema = new mongoose.Schema(
   {
-    rmStaffId: { type: String, unique: true, index: true },
+    mrStaffId: { type: String, unique: true, index: true },
 
     store: {
       type: mongoose.Schema.Types.ObjectId,
@@ -89,12 +89,12 @@ const storeStaffSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-/* ================= AUTO GENERATE RMID ================= */
+/* ================= AUTO GENERATE MRID ================= */
 
 // For .save() / .create()
 storeStaffSchema.pre("save", async function(next) {
-  if (!this.rmStaffId) {
-    this.rmStaffId = await generateRMId("RMSTF","STORE_STAFF");
+  if (!this.mrStaffId) {
+    this.mrStaffId = await generateMRId("MRSTF","STORE_STAFF");
   }
   next();
 });
@@ -102,8 +102,8 @@ storeStaffSchema.pre("save", async function(next) {
 // For insertMany
 storeStaffSchema.pre("insertMany", async function(next, docs) {
   for (let doc of docs) {
-    if (!doc.rmStaffId) {
-      doc.rmStaffId = await generateRMId("RMSTF","STORE_STAFF");
+    if (!doc.mrStaffId) {
+      doc.mrStaffId = await generateMRId("MRSTF","STORE_STAFF");
     }
   }
   next();
@@ -112,8 +112,8 @@ storeStaffSchema.pre("insertMany", async function(next, docs) {
 // For findOneAndUpdate with upsert
 storeStaffSchema.pre("findOneAndUpdate", async function(next) {
   const update = this.getUpdate();
-  if (update && !update.rmStaffId) {
-    update.rmStaffId = await generateRMId("RMSTF","STORE_STAFF");
+  if (update && !update.mrStaffId) {
+    update.mrStaffId = await generateMRId("MRSTF","STORE_STAFF");
     this.setUpdate(update);
   }
   next();

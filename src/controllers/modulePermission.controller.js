@@ -10,7 +10,7 @@ export const getMyPermissions = async (req, res) => {
     const userRoles = req.user.roleIds; // Logged-in user roles
     // console.log("get the role",req.user)
     const permissions = await ModulePermission.find({ role: { $in: userRoles } })
-      .populate("role", "role rmRoleId")
+      .populate("role", "role mrRoleId")
       .lean();
 
     res.json({ success: true, permissions });

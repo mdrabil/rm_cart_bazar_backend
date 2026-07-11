@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const testimonialSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    rmTestimonialId: { type: String, unique: true, index: true },
+    mrTestimonialId: { type: String, unique: true, index: true },
     name: {
       type: String,
       required: [true, "Name is required"],

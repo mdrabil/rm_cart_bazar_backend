@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 
 const socialSchema = new mongoose.Schema(
   {
@@ -13,7 +13,7 @@ const socialSchema = new mongoose.Schema(
 
 const userSchema = new mongoose.Schema(
   {
-    rmId: { type: String, unique: true, index: true },
+    mrId: { type: String, unique: true, index: true },
     refreshToken: { type: String, select: false },
     fullName: { type: String, required: true },
    dp: {
@@ -21,8 +21,10 @@ const userSchema = new mongoose.Schema(
   public_id: { type: String, default: null },
 },
     mobile: { type: String, required: true, unique: true, index: true },
-    email: { type: String, lowercase: true },
+    email: { type: String, lowercase: true, sparse: true, index: true },
     passwordHash: { type: String, required: true, select: false },
+    resetPasswordToken: { type: String, select: false },
+    resetPasswordExpires: { type: Date, select: false },
 roles: [{ type: mongoose.Schema.Types.ObjectId, ref: "Role" }],
     socials: [socialSchema],
 
@@ -34,10 +36,10 @@ roles: [{ type: mongoose.Schema.Types.ObjectId, ref: "Role" }],
 
 
 /* --------------------------------------------------
- 🔥 AUTO RM ID (ASYNC SAFE)
+ 🔥 AUTO MR ID (ASYNC SAFE)
 -------------------------------------------------- */
 userSchema.pre("save", async function (next) {
-  if (!this.rmId) this.rmId = await generateRMId("USR","USER");
+  if (!this.mrId) this.mrId = await generateMRId("USR","USER");
   next();
 });
 

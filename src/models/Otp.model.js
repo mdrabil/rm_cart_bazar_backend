@@ -1,11 +1,11 @@
 // models/otp.model.js
 import mongoose from "mongoose";
-import { generateRMId } from "../utils/rmId.js";
+import { generateMRId } from "../utils/mrId.js";
 import counterModel from "./Counter.model.js";
 
 const otpSchema = new mongoose.Schema(
   {
-    rmOtpId: {
+    mrOtpId: {
       type: String,
       unique: true,
   
@@ -49,8 +49,8 @@ otpSchema.pre("validate", async function (next) {
 
 
 otpSchema.pre("save", async function (next) {
-  if (!this.rmOtpId) {
-    this.rmOtpId = await generateRMId("OTP");
+  if (!this.mrOtpId) {
+    this.mrOtpId = await generateMRId("OTP");
   }
   next();
 });
