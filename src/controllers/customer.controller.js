@@ -355,6 +355,7 @@ if (!emailVerification) {
         customerId: languagePreference.customerId,
         languageType: languagePreference.languageType,
         status: languagePreference.status,
+        canChange: languagePreference.status === "active",
       },
     });
   } catch (err) {
@@ -567,6 +568,7 @@ export const customerLogin = async (req, res) => {
         customerId: languagePreference.customerId,
         languageType: languagePreference.languageType,
         status: languagePreference.status,
+        canChange: languagePreference.status === "active",
       },
     });
   } catch (err) {

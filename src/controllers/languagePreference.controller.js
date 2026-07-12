@@ -1,4 +1,4 @@
-import LanguagePreferenceModel from "../models/LanguagePreference.model.js";
+import LanguagePreference from "../models/LanguagePreference.model.js";
 
 const VALID_LANGUAGE_TYPES = ["English", "Hindi"];
 
@@ -13,10 +13,10 @@ export const getLanguagePreference = async (req, res) => {
       });
     }
 
-    let preference = await LanguagePreferenceModel.findOne({ customerId });
+    let preference = await LanguagePreference.findOne({ customerId });
 
     if (!preference) {
-      preference = await LanguagePreferenceModel.create({
+      preference = await LanguagePreference.create({
         customerId,
         languageType: "English",
         status: "active",
@@ -29,7 +29,7 @@ export const getLanguagePreference = async (req, res) => {
         customerId: preference.customerId,
         languageType: preference.languageType,
         status: preference.status,
-        canChangeLanguage: preference.status === "active",
+        canChange: preference.status === "active",
       },
     });
   } catch (err) {
@@ -61,16 +61,23 @@ export const updateLanguagePreference = async (req, res) => {
       });
     }
 
-    const existing = await LanguagePreferenceModel.findOne({ customerId });
+    const existing = await LanguagePreference.findOne({ customerId });
 
-    if (existing?.status === "inactive") {
+    if (existing && existing.status === "inactive") {
       return res.status(403).json({
         success: false,
-        message: "Language change is disabled by admin",
+        message:
+          "Language change is disabled for your account. Please contact support.",
+        data: {
+          customerId: existing.customerId,
+          languageType: existing.languageType,
+          status: existing.status,
+          canChange: false,
+        },
       });
     }
 
-    const preference = await LanguagePreferenceModel.findOneAndUpdate(
+    const preference = await LanguagePreference.findOneAndUpdate(
       { customerId },
       {
         customerId,
@@ -86,7 +93,7 @@ export const updateLanguagePreference = async (req, res) => {
         customerId: preference.customerId,
         languageType: preference.languageType,
         status: preference.status,
-        canChangeLanguage: preference.status === "active",
+        canChange: preference.status === "active",
       },
     });
   } catch (err) {
@@ -100,10 +107,10 @@ export const updateLanguagePreference = async (req, res) => {
 };
 
 export const getOrCreateLanguagePreference = async (customerId) => {
-  let preference = await LanguagePreferenceModel.findOne({ customerId });
+  let preference = await LanguagePreference.findOne({ customerId });
 
   if (!preference) {
-    preference = await LanguagePreferenceModel.create({
+    preference = await LanguagePreference.create({
       customerId,
       languageType: "English",
       status: "active",

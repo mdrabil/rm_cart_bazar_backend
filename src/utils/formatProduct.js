@@ -19,7 +19,7 @@ export const formatProduct = (product) => {
       value: v.value,
       mrp: v.mrp,
       sellingPrice: v.sellingPrice,
-      stock: v.stock,
+      stockQty: v.stockQty || v.stock,
     })) || [],
   };
 };
@@ -113,6 +113,8 @@ export const formatCart = (cart) => {
 
       sellingPrice:
         variant?.sellingPrice || 0,
+
+      stockQty: variant?.stockQty ?? 0,
 
       gstPercent:
         product?.gstPercent || 0,

@@ -9,6 +9,7 @@ import Product from "../models/Product.model.js";
 
 import { formatCart } from "../utils/formatProduct.js";
 import { generateLayerId } from "../utils/mrId.js";
+import { validateVariantStock } from "../utils/stock.utils.js";
 
 // ─────────────────────────────────────────────
 // OBJECT ID VALIDATOR
@@ -201,11 +202,32 @@ export const addToCart = async (
       });
     }
 
-    // ─────────────────────────
-
     let cart = await Cart.findOne({
       customerId,
     });
+
+    const existingItem = cart?.items?.find((i) => {
+      return (
+        i.productId.toString() === productId &&
+        i.variantId.toString() === variantId &&
+        i?.layer?.layerId === layer?.layerId
+      );
+    });
+
+    const existingQty = existingItem?.qty || 0;
+    const stockCheck = validateVariantStock(variant, qty, existingQty);
+
+    if (!stockCheck.ok) {
+      return res.status(400).json({
+        message: stockCheck.message,
+      });
+    }
+
+    // ─────────────────────────
+
+    // let cart = await Cart.findOne({
+    //   customerId,
+    // });
 
 const newItem = {
   productId,
@@ -358,6 +380,32 @@ export const updateCart = async (
       return res.status(404).json({
         message: "Item not found",
       });
+    }
+
+    if (qty > 0) {
+      const product = await Product.findById(productId);
+
+      if (!product) {
+        return res.status(404).json({
+          message: "Product not found",
+        });
+      }
+
+      const variant = product.variants?.id(variantId);
+
+      if (!variant) {
+        return res.status(400).json({
+          message: "Invalid variant",
+        });
+      }
+
+      const stockCheck = validateVariantStock(variant, qty, 0);
+
+      if (!stockCheck.ok) {
+        return res.status(400).json({
+          message: stockCheck.message,
+        });
+      }
     }
 
     // REMOVE

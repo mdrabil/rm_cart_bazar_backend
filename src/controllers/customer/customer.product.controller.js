@@ -4,6 +4,7 @@ import CouponModel from "../../models/Coupon.model.js";
 import CouponUsageModel from "../../models/CouponUsage.model.js";
 import ProductModel from "../../models/Product.model.js";
 import ReviewModel from "../../models/Review.model.js";
+import ProductNotify from "../../models/ProductNotify.model.js";
 
 
 
@@ -23,6 +24,92 @@ export const getProductById = async (req, res) => {
 };
 
 
+
+
+export const createProductNotify = async (req, res) => {
+    try {
+
+        const customerId = req.user._id;
+
+        const { productId, variantId } = req.body;
+
+        if (!productId) {
+            return res.status(400).json({
+                success: false,
+                message: "Product is required",
+            });
+        }
+
+        if (!variantId) {
+            return res.status(400).json({
+                success: false,
+                message: "Variant is required",
+            });
+        }
+
+        const product = await ProductModel.findById(productId);
+
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: "Product not found",
+            });
+        }
+
+        const variant = product.variants.find(
+            (item) => item._id.toString() === variantId
+        );
+
+        if (!variant) {
+            return res.status(404).json({
+                success: false,
+                message: "Variant not found",
+            });
+        }
+
+        if (variant.stockQty > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Product is already in stock.",
+            });
+        }
+
+        const alreadyExist = await ProductNotify.findOne({
+            customer: customerId,
+            product: productId,
+            variantId,
+        });
+
+        if (alreadyExist) {
+            return res.status(400).json({
+                success: false,
+                message: "You already requested notification.",
+            });
+        }
+
+        await ProductNotify.create({
+            customer: customerId,
+            product: productId,
+            variantId,
+        });
+
+        return res.status(201).json({
+            success: true,
+            message:
+                "You'll be notified once this product is back in stock.",
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
+
+    }
+};
 
 
 
@@ -1140,6 +1227,27 @@ export const getSingleProductDetails = async (req, res) => {
     //       `Buy ${product.name} at best price`,
     //   },
     // };
+
+    const formattedProduct = {
+  _id: product._id,
+  name: product.name,
+  slug: product.slug,
+  description: product.description,
+customization:product?.customization || {},
+  category: product.category,
+  subCategory: product.subCategory,
+
+  // store: product.store,
+
+  label: product.label,
+  variants: product.variants,
+
+  images: product.images,
+  thumbnails: product.thumbnails,
+
+  averageRating,
+  totalReviews,
+};
 
     // ================= RESPONSE =================
     return res.status(200).json({

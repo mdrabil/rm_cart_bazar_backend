@@ -13,6 +13,7 @@ import {
 import cloudinary from "../config/cloudinaryConfig.js";
 
 import { generateProductSlug } from "../utils/mrId.js";
+import ProductNotifyModel from "../models/ProductNotify.model.js";
 
 // =============================================================================
 // HELPERS
@@ -254,6 +255,8 @@ export const updateProduct = async (req, res) => {
     // ── Find product ──────────────────────────────────────────────────────────
 
     const product = await Product.findById(productId);
+const oldVariants = JSON.parse(JSON.stringify(product.variants));
+
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
@@ -437,6 +440,33 @@ export const updateProduct = async (req, res) => {
     // ── Save ──────────────────────────────────────────────────────────────────
 
     await product.save();
+
+    // await product.save();
+
+// Check stock changes
+for (const variant of product.variants) {
+  const oldVariant = oldVariants.find(
+    (v) => v._id.toString() === variant._id.toString()
+  );
+
+  if (!oldVariant) continue;
+
+  // Stock changed from 0 -> greater than 0
+  if (
+    Number(oldVariant.stockQty) <= 0 &&
+    Number(variant.stockQty) > 0
+  ) {
+    await ProductNotifyModel.deleteMany({
+      product: product._id,
+      variantId: variant._id.toString(),
+    });
+
+    // Future:
+    // Send Email
+    // Send SMS
+    // Send Push Notification
+  }
+}
 
     return res.json({
       success: true,

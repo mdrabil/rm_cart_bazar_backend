@@ -15,6 +15,7 @@ import { checkPermission } from "../../middlewares/checkPermission.middleware.js
 import { MODULE_KEY } from "../../constants/enums.js";
 import { arrayImagesThumbnailsUpload, upload } from "../../middlewares/upload.middleware.js";
 import { createNewProduct, updateProduct } from "../../controllers/new-product.controller.js";
+import { deleteNotifyRequest, getAllNotifyRequests, updateNotifyStatus } from "../../controllers/admin/product.notify.controller.js";
 
 const router = express.Router();
 
@@ -69,7 +70,23 @@ router.post(
 );
 
 
+router.get(
+    "/notify-requests",
+    authMiddleware,
+    getAllNotifyRequests
+);
 
+router.patch(
+    "/notify-requests/:id",
+    authMiddleware,
+    updateNotifyStatus
+);
+
+router.delete(
+    "/notify-requests/:id",
+    authMiddleware,
+    deleteNotifyRequest
+);
 
 
 router.put(

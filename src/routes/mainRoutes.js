@@ -29,8 +29,8 @@ import BannerRoutes from "../routes/banner.routes.js";
 import AnalyticsRoutes from "../routes/analytics.routes.js";
 import paymentRoutes from "../routes/payment.routes.js";
 import paymentGatewayRoutes from "./admin/paymentGateway.routes.js";
-import languagePreferenceRoutes from "./admin/languagePreference.routes.js";
 import singleRoutes from "../routes/admin/single.routes.js";
+import languagePreferenceAdminRoutes from "./admin/languagePreference.routes.js";
 
 
 
@@ -77,6 +77,6 @@ router.use("/admin/orders", adminOrderRoutes);
 router.use("/admin/module-permissions", permissionRoutes);
 router.use("/admin/roles", roleRoutes);
 router.use("/admin/customers", customerRoutes);
-router.use("/admin/language-preferences", languagePreferenceRoutes);
+router.use("/admin/language-preferences", languagePreferenceAdminRoutes);
 
 export default router;

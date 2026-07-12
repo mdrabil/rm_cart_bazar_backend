@@ -7,7 +7,8 @@ import {
   getAllCategorys,
   applyCoupon,
   checkCouponActiveOrNot,
-  getSingleProductDetails
+  getSingleProductDetails,
+  createProductNotify
 
 } from "../../controllers/customer/customer.product.controller.js";
 import { customerAuth, customerauthMiddlewareOptional } from "../../middlewares/customerAuth.middleware.js";
@@ -21,6 +22,11 @@ const router = express.Router();
 
 // ✅ FIRST static routes
 router.get("/category-all", getAllCategorys);
+router.post(
+    "/notify-me",
+    customerAuth,
+    createProductNotify
+);
 router.get("/", getAllProducts);
 // router.get("/product-details", getSingleProductDetails);
 router.get("/product-details/:slug", getSingleProductDetails);
