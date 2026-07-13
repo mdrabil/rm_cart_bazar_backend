@@ -13,14 +13,23 @@ export default function createCashfreeService(credentials, gatewayDoc) {
   return {
     gatewayName: gatewayDoc.gatewayName,
 
-    async createPayment({ amount, sessionId, customer }) {
+    async createPayment({ amount, sessionId, customer, apiBaseUrl }) {
+      const apiBase = String(apiBaseUrl || "").replace(/\/$/, "");
+      const orderMeta = {
+        // Cashfree redirects here after payment; backend verifies then sends user to website/app.
+        return_url: `${apiBase}/api/payment/return/{order_id}`,
+      };
+      if (credentials.webhookUrl) {
+        orderMeta.notify_url = credentials.webhookUrl;
+      }
+
       const res = await fetch(`${base()}/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-version": "2023-08-01",
-          "x-client-id": credentials.keyId,
-          "x-client-secret": credentials.secret,
+          "x-client-id": credentials.keyId.trim(),
+          "x-client-secret": credentials.secret.trim(),
         },
         body: JSON.stringify({
           order_id: sessionId,
@@ -32,6 +41,7 @@ export default function createCashfreeService(credentials, gatewayDoc) {
             customer_email: customer?.email || "customer@example.com",
             customer_name: customer?.name || "Customer",
           },
+          order_meta: orderMeta,
         }),
       });
       const order = await res.json();
