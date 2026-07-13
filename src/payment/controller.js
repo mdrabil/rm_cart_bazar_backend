@@ -116,13 +116,16 @@ export const paymentReturnController = async (req, res) => {
         sessionId: req.params.sessionId,
       });
       if (session?.cancelUrl) {
-        const joiner = session.cancelUrl.includes("?") ? "&" : "?";
         setPageHeaders(res);
         return res
           .status(200)
           .send(
             redirectHtml(
-              `${session.cancelUrl}${joiner}status=${error.message === "Payment cancelled" ? "cancelled" : "failed"}`
+              buildFailRedirect(session.cancelUrl, {
+                status: error.message === "Payment cancelled" ? "cancelled" : "failed",
+                reason: error.message,
+                sessionId: session.sessionId,
+              })
             )
           );
       }
@@ -130,5 +133,23 @@ export const paymentReturnController = async (req, res) => {
       /* ignore */
     }
     return res.status(400).send(`<h2>${escapeHtml(error.message)}</h2>`);
+  }
+};
+
+function buildFailRedirect(baseUrl, fields) {
+  const joiner = baseUrl.includes("?") ? "&" : "?";
+  const params = new URLSearchParams();
+  Object.entries(fields).forEach(([k, v]) => {
+    if (v != null && v !== "") params.set(k, String(v));
+  });
+  return `${baseUrl}${joiner}${params.toString()}`;
+}
+
+export const getSessionStatusController = async (req, res) => {
+  try {
+    const result = await Payment.getSessionStatus(req.params.sessionId);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ success: false, status: "failed", message: error.message });
   }
 };

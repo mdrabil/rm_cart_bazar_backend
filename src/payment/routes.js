@@ -17,6 +17,7 @@ import {
   renderCheckoutPageController,
   saveFailedPaymentController,
   verifyPaymentController,
+  getSessionStatusController,
 } from "./controller.js";
 import {
   deletePayment,
@@ -35,6 +36,7 @@ router.post("/create-order", customerAuth, createPaymentOrderController);
 router.get("/active-gateway", getActiveGatewayController);
 router.all("/return/:sessionId", paymentReturnController);
 router.get("/page/:sessionId", renderCheckoutPageController);
+router.get("/session/:sessionId/status", getSessionStatusController);
 router.post("/webhook/:gatewayName", paymentWebhookController);
 router.post("/failed", customerAuth, saveFailedPaymentController);
 router.post("/verify", customerAuth, verifyPaymentController);

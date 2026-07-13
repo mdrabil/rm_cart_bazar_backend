@@ -160,11 +160,21 @@ export function appendQuery(baseUrl, params) {
 }
 
 export function buildReturnUrl(baseUrl, fields = {}) {
+  if (!baseUrl) return "";
   const params = new URLSearchParams({ status: fields.status || "processing" });
   Object.entries(fields).forEach(([k, v]) => {
     if (v != null && v !== "" && k !== "status") params.set(k, String(v));
   });
   return appendQuery(baseUrl, params);
+}
+
+/** Safely append status query params to a URL that may already contain ?. */
+export function appendStatusParams(baseUrl, fields = {}) {
+  return buildReturnUrl(baseUrl, fields);
+}
+
+export function isAppPlatform(platform) {
+  return ["android", "ios"].includes(String(platform || "").toLowerCase());
 }
 
 export function shouldUseServerRedirect(platform, apiBaseUrl) {

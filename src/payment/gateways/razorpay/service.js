@@ -97,15 +97,34 @@ export default function createRazorpayService(credentials, gatewayDoc) {
       return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Payment</title></head><body><script>
 ${CLIENT_HELPERS}
 (function(){
-  var returnUrl="${returnUrl}", cancelUrl="${cancelUrl}", booted=false;
+  var returnUrl="${returnUrl}", cancelUrl="${cancelUrl}", apiBase="${escapeHtml(data.apiBaseUrl || "")}", sessionId="${sessionId}", booted=false;
   function boot(n){ if(booted)return; n=n||0;
     if(typeof Razorpay==="undefined"){ if(n>100)return fail("Unable to load gateway"); setTimeout(function(){boot(n+1);},100); return; }
     booted=true;
-    var o={ key:"${escapeHtml(data.publicKey)}", amount:${Number(data.amountPaise)||0}, currency:"INR", name:"MR Brand", order_id:"${escapeHtml(data.gatewayOrderId)}",
-      ${useRedirect ? `redirect:true, callback_url:"${callbackUrl}",` : ""}
-      modal:{ ondismiss:function(){ if(cancelUrl) location.href=cancelUrl+"?status=cancelled"; } }
+    var o={
+      key:"${escapeHtml(data.publicKey)}",
+      amount:${Number(data.amountPaise)||0},
+      currency:"INR",
+      name:"MR Brand",
+      order_id:"${escapeHtml(data.gatewayOrderId)}",
+      ${useRedirect ? `redirect:true, callback_url:"${callbackUrl}",` : `handler:function(response){
+        var u=apiBase+"/api/payment/return/"+sessionId;
+        var p=new URLSearchParams();
+        if(response.razorpay_order_id) p.set("razorpay_order_id", response.razorpay_order_id);
+        if(response.razorpay_payment_id) p.set("razorpay_payment_id", response.razorpay_payment_id);
+        if(response.razorpay_signature) p.set("razorpay_signature", response.razorpay_signature);
+        location.href=u+(u.indexOf("?")>-1?"&":"?")+p.toString();
+      },`}
+      modal:{ ondismiss:function(){ if(cancelUrl) redirectWithParams(cancelUrl, new URLSearchParams({status:"cancelled"})); } }
     };
-    var rzp=new Razorpay(o); rzp.on("payment.failed",function(){ if(cancelUrl) location.href=cancelUrl+"?status=failed"; }); rzp.open();
+    var rzp=new Razorpay(o);
+    rzp.on("payment.failed",function(resp){
+      var p=new URLSearchParams({status:"failed"});
+      var reason=resp&&resp.error&&(resp.error.description||resp.error.reason);
+      if(reason) p.set("reason", String(reason));
+      if(cancelUrl) redirectWithParams(cancelUrl, p);
+    });
+    rzp.open();
   }
   loadScript("https://checkout.razorpay.com/v1/checkout.js",function(){boot(0);});
 })();</script></body></html>`;

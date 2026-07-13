@@ -242,7 +242,7 @@ export async function create(customerId, user, body) {
   const defaultCancel =
     body.cancelUrl ||
     (platform === "website"
-      ? `${appConfig.websiteUrl}/checkout?payment=cancelled`
+      ? `${appConfig.websiteUrl}/payment-failed`
       : body.cancelUrl);
 
   const gatewayCheckout = await service.createPayment({
@@ -342,6 +342,52 @@ export async function handleReturn(sessionId, req) {
   const parsed = service.parseReturn(req);
   if (!parsed.gatewayOrderId) parsed.gatewayOrderId = session.gatewayOrderId;
 
+  const rawStatus = String(
+    parsed.status || parsed.raw?.status || req.query?.status || req.body?.status || ""
+  ).toLowerCase();
+
+  // Explicit cancel / fail from gateway client (before or instead of verify)
+  if (["cancelled", "canceled", "user_cancelled"].includes(rawStatus)) {
+    return {
+      targetUrl: buildReturnUrl(session.cancelUrl || session.returnUrl, {
+        status: "cancelled",
+        sessionId: session.sessionId,
+        reason: "Payment cancelled by customer",
+      }),
+      processing: false,
+      failed: true,
+    };
+  }
+
+  if (["failed", "failure", "error"].includes(rawStatus)) {
+    return {
+      targetUrl: buildReturnUrl(session.cancelUrl || session.returnUrl, {
+        status: "failed",
+        sessionId: session.sessionId,
+        reason: parsed.reason || "Payment failed",
+        transactionId: parsed.transactionId || "",
+      }),
+      processing: false,
+      failed: true,
+    };
+  }
+
+  // Already completed session — avoid duplicate processing / redirect loops
+  if (session.status === CHECKOUT_SESSION_STATUS.COMPLETED && session.paymentId) {
+    const paid = await Payment.findById(session.paymentId);
+    if (paid?.order) {
+      return {
+        targetUrl: buildReturnUrl(session.returnUrl, {
+          status: "success",
+          orderId: String(paid.order),
+          transactionId: paid.transactionId || "",
+          amount: session.amount,
+        }),
+        processing: false,
+      };
+    }
+  }
+
   const result = await verifyPayment({
     source: "redirect",
     gatewayName: session.gatewayName,
@@ -359,17 +405,101 @@ export async function handleReturn(sessionId, req) {
       targetUrl: buildReturnUrl(session.returnUrl, {
         status: "success",
         orderId: String(result.orderId),
+        transactionId: result.payment?.transactionId || parsed.transactionId || "",
+        amount: session.amount,
       }),
       processing: false,
     };
   }
 
+  // Still verifying — UX stays on payment-return / thanku until poll resolves
   return {
     targetUrl: buildReturnUrl(session.returnUrl, {
       status: "processing",
       sessionId: session.sessionId,
     }),
     processing: true,
+  };
+}
+
+/**
+ * Pollable session status for payment-return / app while webhook catches up.
+ */
+export async function getSessionStatus(sessionId) {
+  const session = await PaymentCheckoutSession.findOne({ sessionId });
+  if (!session) {
+    return { success: false, status: "expired", message: "Session not found or expired" };
+  }
+
+  if (session.status === CHECKOUT_SESSION_STATUS.COMPLETED) {
+    const payment = session.paymentId
+      ? await Payment.findById(session.paymentId)
+      : await Payment.findOne({ checkoutSessionId: sessionId }).sort({ createdAt: -1 });
+
+    if (payment?.order) {
+      return {
+        success: true,
+        status: "success",
+        orderId: String(payment.order),
+        transactionId: payment.transactionId || null,
+        amount: session.amount,
+        paymentMethod: payment.paymentMethodType || payment.method || null,
+        gatewayName: session.gatewayName,
+      };
+    }
+  }
+
+  // Attempt a light server-side verify (idempotent) when still processing
+  if (
+    session.status !== CHECKOUT_SESSION_STATUS.COMPLETED &&
+    session.expiresAt > new Date()
+  ) {
+    const result = await verifyPayment({
+      source: "api",
+      gatewayName: session.gatewayName,
+      gatewayOrderId: session.gatewayOrderId,
+      customerId: session.customerId,
+      checkoutSession: session,
+      platform: session.platform || "website",
+    });
+
+    if (result.success && result.orderId) {
+      return {
+        success: true,
+        status: "success",
+        orderId: String(result.orderId),
+        transactionId: result.payment?.transactionId || null,
+        amount: session.amount,
+        gatewayName: session.gatewayName,
+      };
+    }
+
+    if (result.processing || result.pending) {
+      return {
+        success: false,
+        status: "processing",
+        sessionId: session.sessionId,
+        amount: session.amount,
+        gatewayName: session.gatewayName,
+      };
+    }
+  }
+
+  if (session.expiresAt <= new Date()) {
+    return {
+      success: false,
+      status: "failed",
+      reason: "Payment session expired",
+      sessionId: session.sessionId,
+    };
+  }
+
+  return {
+    success: false,
+    status: "processing",
+    sessionId: session.sessionId,
+    amount: session.amount,
+    gatewayName: session.gatewayName,
   };
 }
 
@@ -534,6 +664,7 @@ export default {
   getCheckoutPage,
   renderCheckoutPage,
   handlePaymentReturn,
+  getSessionStatus,
   runScheduledVerifications,
   startRetryWorker,
   generateCheckoutSession: create,
