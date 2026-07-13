@@ -15,10 +15,23 @@ import { hashPassword } from "../utils/passwordUtils.js";
 // Register user (SUPER_ADMIN only)
 export const registerUser = async (req, res) => {
   try {
-    const { fullName, email, mobile, password, roles } = req.body;
+    const { fullName, email, mobile, password, roles: requestedRoles } = req.body;
 
     const { error } = registerUserSchema.validate(req.body);
     if (error) return res.status(400).json({ message: error.details[0].message });
+
+    const callerRoles = req.user?.roles || [];
+    const userCount = await User.countDocuments();
+    let roles = Array.isArray(requestedRoles) ? [...requestedRoles] : ["CUSTOMER"];
+
+    if (userCount === 0) {
+      roles = ["SUPER_ADMIN"];
+    } else if (roles.includes("SUPER_ADMIN") && !callerRoles.includes("SUPER_ADMIN")) {
+      return res.status(403).json({
+        success: false,
+        message: "Only SUPER_ADMIN can assign SUPER_ADMIN role",
+      });
+    }
 
     const hashedPassword = await hashPassword(password);
 

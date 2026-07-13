@@ -8,6 +8,7 @@ import { USER_ROLE, ORDER_STATUS } from "../constants/enums.js";
 import { generateMRId } from "../utils/mrId.js";
 import { buildStoreFilter, getUserStoreRole } from "../utils/accessHelper.js";
 import mongoose from "mongoose";
+import { emitOrderUpdate } from "../sockets/orderEvents.js";
 
 // ================== Joi Validation ==================
 const createOrderSchema = Joi.object({
@@ -155,10 +156,17 @@ export const updateOrder = async (req, res) => {
     if (!role) return res.status(403).json({ message: "No access" });
 
     // Update only status
+    const previousStatus = order.status;
     if (value.status) order.status = value.status;
     else return res.status(400).json({ message: "Status is required" });
 
     await order.save();
+
+    emitOrderUpdate({
+      type: order.status === ORDER_STATUS.CANCELLED ? "cancelled" : "status",
+      order,
+      previousStatus,
+    });
 
     res.json({ success: true, order });
 

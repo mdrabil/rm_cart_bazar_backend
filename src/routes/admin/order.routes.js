@@ -8,24 +8,47 @@ import {
   deleteOrder
 } from "../../controllers/order.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { checkPermission } from "../../middlewares/checkPermission.middleware.js";
+import { MODULE_KEY } from "../../constants/enums.js";
 
 const router = express.Router();
 
+router.get(
+  "/",
+  authMiddleware,
+  checkPermission(MODULE_KEY.ORDERS, "read"),
+  getAllOrders
+);
 
-// Customer → place order
-router.get("/",authMiddleware, getAllOrders);
-
-
-router.post("/",  createOrder);
+router.post(
+  "/",
+  authMiddleware,
+  checkPermission(MODULE_KEY.ORDERS, "create"),
+  createOrder
+);
 
 // Get all orders → role-wise
 
 // Get order by ID → role-wise
-router.get("/:orderId",authMiddleware, getOrderById);
+router.get(
+  "/:orderId",
+  authMiddleware,
+  checkPermission(MODULE_KEY.ORDERS, "read"),
+  getOrderById
+);
 
-router.patch("/:orderId/status",authMiddleware, updateOrder);
+router.patch(
+  "/:orderId/status",
+  authMiddleware,
+  checkPermission(MODULE_KEY.ORDERS, "update"),
+  updateOrder
+);
 
-// Delete order → SUPER_ADMIN / Store Roles
-router.delete("/:orderId",authMiddleware, deleteOrder);
+router.delete(
+  "/:orderId",
+  authMiddleware,
+  checkPermission(MODULE_KEY.ORDERS, "delete"),
+  deleteOrder
+);
 
 export default router;

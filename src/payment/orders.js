@@ -13,6 +13,8 @@ import Order from "../models/Order.model.js";
 import Payment from "../models/Payment.model.js";
 import Product from "../models/Product.model.js";
 import StoreModel from "../models/Store.model.js";
+import { normalizeOrderSource } from "../utils/orderSource.js";
+import { applyCouponAtomically } from "../utils/couponAtomic.js";
 import PaymentCheckoutSession, {
   CHECKOUT_SESSION_STATUS,
 } from "../models/PaymentCheckoutSession.model.js";
@@ -202,6 +204,7 @@ export async function fulfillPaidOrder({
   notes,
   transactionId,
   session,
+  orderSource,
 }) {
   await decrementStock(orderItems, session);
 
@@ -285,6 +288,7 @@ export async function fulfillPaidOrder({
         notes,
         deliveryDate,
         status: ORDER_STATUS.PLACED,
+        orderSource: normalizeOrderSource(orderSource),
       },
     ],
     { session }
@@ -298,16 +302,7 @@ export async function fulfillPaidOrder({
   await paymentRecord.save({ session });
 
   if (coupon) {
-    await CouponUsage.create(
-      [{ coupon: coupon._id, user: customerId }],
-      { session }
-    );
-
-    await Coupon.updateOne(
-      { _id: coupon._id },
-      { $inc: { usedCount: 1 } },
-      { session }
-    );
+    await applyCouponAtomically(coupon, customerId, session);
   }
 
   await Cart.updateOne(

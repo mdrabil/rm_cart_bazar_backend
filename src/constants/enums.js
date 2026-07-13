@@ -68,6 +68,12 @@ export const ORDER_STATUS = Object.freeze({
     ON_HOLD: "ON_HOLD",
 });
 
+/** Where the order was placed — website or mobile app */
+export const ORDER_SOURCE = Object.freeze({
+  WEBSITE: "website",
+  APP: "app",
+});
+
 
 export const COUPON_STATUS = {
   ACTIVE: "ACTIVE",

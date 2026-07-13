@@ -16,21 +16,36 @@ import { checkPermission } from "../../middlewares/checkPermission.middleware.js
 
 const router = express.Router();
 
-router.post("/", createCustomer);
-router.get("/", getAllCustomers);
-router.put("/:id", updateCustomer);
-router.delete("/:id", deleteCustomer);
+router.use(authMiddleware);
+
+router.post(
+  "/",
+  checkPermission(MODULE_KEY.CUSTOMERS, "create"),
+  createCustomer
+);
+router.get(
+  "/",
+  checkPermission(MODULE_KEY.CUSTOMERS, "read"),
+  getAllCustomers
+);
+router.put(
+  "/:id",
+  checkPermission(MODULE_KEY.CUSTOMERS, "update"),
+  updateCustomer
+);
+router.delete(
+  "/:id",
+  checkPermission(MODULE_KEY.CUSTOMERS, "delete"),
+  deleteCustomer
+);
 router.patch(
   "/:id/toggle-status",
-  authMiddleware,
   checkPermission(MODULE_KEY.CUSTOMERS, "update"),
   toggleCustomerStatus
 );
-// router.get("/cart", deleteCustomer);
 
-// Admin routes
-router.get("/carts", authMiddleware, adminOnly, getAllCarts);
-router.get("/carts/:cartId", authMiddleware, adminOnly, getCartById);
-router.delete("/carts/clear/:id", authMiddleware, adminOnly, clearCartByAdmin);
+router.get("/carts", adminOnly, getAllCarts);
+router.get("/carts/:cartId", adminOnly, getCartById);
+router.delete("/carts/clear/:id", adminOnly, clearCartByAdmin);
 
 export default router;

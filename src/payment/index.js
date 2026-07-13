@@ -40,6 +40,7 @@ import {
   resolveSessionReturnUrl,
   resolveSessionCancelUrl,
 } from "./redirects.js";
+import { emitOrderUpdate } from "../sockets/orderEvents.js";
 
 // ── Validation helpers ────────────────────────────────────────────────────────
 
@@ -186,6 +187,7 @@ export async function verifyPayment({
         deliveryDate: deliveryDate ?? session?.deliveryDate,
         notes: notes ?? session?.notes,
         transactionId: verified.transactionId,
+        orderSource: session?.platform || platform,
         session: db,
       });
 
@@ -198,6 +200,7 @@ export async function verifyPayment({
 
       await db.commitTransaction();
       db.endSession();
+      emitOrderUpdate({ type: "new", order });
       return { success: true, orderId: order._id, order, user: updatedUser, payment };
     } catch (e) {
       await db.abortTransaction();

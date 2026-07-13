@@ -9,6 +9,10 @@ import { generateMRId, generateTransactionId } from "../../utils/mrId.js";
 import Customer from "../../models/Customer.js";
 import { getDistanceKm } from "../../utils/getDistanceKm.js";
 import StoreModel from "../../models/Store.model.js";
+import { emitOrderUpdate } from "../../sockets/orderEvents.js";
+import { normalizeOrderSource } from "../../utils/orderSource.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
+import { applyCouponAtomically } from "../../utils/couponAtomic.js";
 
 
 
@@ -323,8 +327,12 @@ export const placeOrderController = async (req, res) => {
       notes,
       deliverySlot,
       couponCode,
-      deliveryDate
+      deliveryDate,
+      orderSource,
+      platform,
     } = req.body;
+
+    const resolvedOrderSource = normalizeOrderSource(orderSource, platform);
 
     // ================= FETCH CART =================
     const cart = await Cart.findOne({ customerId })
@@ -503,41 +511,8 @@ export const placeOrderController = async (req, res) => {
 
       discountAmount = Number(discountAmount.toFixed(2));
 
-      const updatedCoupon = await Coupon.findOneAndUpdate(
-        {
-          _id: coupon._id,
-          $or: [
-            { usageLimit: { $exists: false } },
-            { usageLimit: null },
-            { usedCount: { $lt: coupon.usageLimit } }
-          ]
-        },
-        {
-          $inc: {
-            usedCount: 1
-          }
-        },
-        {
-          new: true,
-          session
-        }
-      );
-
-      if (!updatedCoupon) {
-        throw new Error("Coupon usage limit reached");
-      }
-
-      await CouponUsage.create(
-        [
-          {
-            coupon: coupon._id,
-            user: customerId
-          }
-        ],
-        { session }
-      );
-
-      appliedCoupon = coupon.code;
+      const updatedCoupon = await applyCouponAtomically(coupon, customerId, session);
+      appliedCoupon = updatedCoupon.code;
     }
 
     // ================= FINAL PAYABLE =================
@@ -560,6 +535,12 @@ export const placeOrderController = async (req, res) => {
 
     const finalPaymentMethod =
       map[paymentMethod?.toLowerCase()] || "COD";
+
+    if (finalPaymentMethod !== "COD") {
+      throw new Error(
+        "Online payments must use the payment gateway. Use /api/payment/create instead."
+      );
+    }
 
     const mrOrderId = await generateMRId("ORD", "ORDER");
 
@@ -635,6 +616,10 @@ export const placeOrderController = async (req, res) => {
       }
     });
 
+    if (!nearestStore) {
+      throw new Error("No store available for delivery in your area");
+    }
+
     const storeLat =
       nearestStore.address.location.coordinates[1];
 
@@ -687,6 +672,8 @@ export const placeOrderController = async (req, res) => {
 
           status: ORDER_STATUS.PLACED,
 
+          orderSource: resolvedOrderSource,
+
           deliveryAddress: {
             ...deliveryAddress,
 
@@ -734,6 +721,8 @@ export const placeOrderController = async (req, res) => {
     const updatedUser = await Customer.findById(
       customerId
     ).lean();
+
+    emitOrderUpdate({ type: "new", order: order[0] });
 
     return res.status(201).json({
       success: true,
@@ -801,8 +790,8 @@ export const getMyOrdersController = async (req, res) => {
     // ✅ Normalize status
  // ✅ Normalize status with case-insensitive regex
 if (status && typeof status === "string" && status.trim() !== "") {
-  const s = status.trim();
-  filter.status = { $regex: `^${s}$`, $options: "i" }; // matches ignoring case
+  const s = escapeRegex(status.trim());
+  filter.status = { $regex: `^${s}$`, $options: "i" };
 }
 
     // ✅ Normalize date range
@@ -818,7 +807,7 @@ if (status && typeof status === "string" && status.trim() !== "") {
 
     // ✅ Normalize search
     if (search && typeof search === "string" && search.trim() !== "") {
-      const s = search.trim().toLowerCase();
+      const s = escapeRegex(search.trim());
       filter.$or = [
         { mrOrderId: { $regex: s, $options: "i" } },
         { status: { $regex: s, $options: "i" } }
@@ -882,10 +871,31 @@ export const updateMyOrderStatusController = async (req, res) => {
       return res.status(400).json({ success: false, message: "Status is required" });
     }
 
+    const normalizedStatus = String(status).toUpperCase();
+    const cancellableStatuses = [
+      ORDER_STATUS.PLACED,
+      ORDER_STATUS.PREPARING,
+      ORDER_STATUS.ON_HOLD,
+    ];
+
     // ✅ Find the order belonging to logged-in user
     const order = await Order.findOne({ _id: orderId, customerId });
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (normalizedStatus !== ORDER_STATUS.CANCELLED) {
+      return res.status(400).json({
+        success: false,
+        message: "Customers can only cancel orders",
+      });
+    }
+
+    if (!cancellableStatuses.includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Order cannot be cancelled at this stage",
+      });
     }
 
     // ✅ Prevent updating if already delivered
@@ -894,11 +904,18 @@ export const updateMyOrderStatusController = async (req, res) => {
     }
 
     // ✅ Update status + optional reason
-    order.status = status.toUpperCase();
+    const previousStatus = order.status;
+    order.status = normalizedStatus;
     if (reason) order.reason = reason;
 
     // ✅ Save will trigger pre-save middleware to update timeline
     await order.save();
+
+    emitOrderUpdate({
+      type: order.status === ORDER_STATUS.CANCELLED ? "cancelled" : "status",
+      order,
+      previousStatus,
+    });
 
     return res.status(200).json({
       success: true,

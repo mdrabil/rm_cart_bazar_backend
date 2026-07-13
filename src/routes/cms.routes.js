@@ -1,34 +1,3 @@
-// import express from "express";
-
-// import {
-// getCmsPage,
-// saveCmsPage,
-// addContent,
-// updateContent,
-// deleteContent
-// } from "../controllers/cms.controller.js";
-// import { adminOnly } from "../middlewares/adminOnly.js";
-
-
-// const router = express.Router();
-
-
-// router.get("/:type",getCmsPage);
-
-// router.post("/:type",adminOnly,saveCmsPage);
-
-// router.post("/:type/content",adminOnly,addContent);
-
-// router.put("/:type/content/:contentId",adminOnly,updateContent);
-
-// router.delete("/:type/content/:contentId",adminOnly,deleteContent);
-
-
-// export default router;
-
-
-
-
 import express from "express";
 import {
   getCmsPages,
@@ -37,19 +6,40 @@ import {
   updateCmsContent,
   deleteCmsContent
 } from "../controllers/cms.controller.js";
+import { authMiddleware } from "../middlewares/auth.middleware.js";
+import { checkPermission } from "../middlewares/checkPermission.middleware.js";
+import { MODULE_KEY } from "../constants/enums.js";
 
 const router = express.Router();
 
-
 router.get("/get", getCmsPages);
 
-router.post("/save/:type", saveCmsPage);
+router.post(
+  "/save/:type",
+  authMiddleware,
+  checkPermission(MODULE_KEY.WEBSITES, "update"),
+  saveCmsPage
+);
 
-router.post("/content/:type", addCmsContent);
+router.post(
+  "/content/:type",
+  authMiddleware,
+  checkPermission(MODULE_KEY.WEBSITES, "create"),
+  addCmsContent
+);
 
-router.put("/content/:type/:contentId", updateCmsContent);
+router.put(
+  "/content/:type/:contentId",
+  authMiddleware,
+  checkPermission(MODULE_KEY.WEBSITES, "update"),
+  updateCmsContent
+);
 
-router.delete("/content/:type/:contentId", deleteCmsContent);
-
+router.delete(
+  "/content/:type/:contentId",
+  authMiddleware,
+  checkPermission(MODULE_KEY.WEBSITES, "delete"),
+  deleteCmsContent
+);
 
 export default router;

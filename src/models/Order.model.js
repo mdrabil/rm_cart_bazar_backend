@@ -250,6 +250,13 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
+    orderSource: {
+      type: String,
+      enum: ["website", "app"],
+      default: "website",
+      index: true,
+    },
+
     // ✅ Status Timeline
     statusTimeline: {
       placedAt: {

@@ -12,6 +12,7 @@ import CouponUsage from "../models/CouponUsage.model.js";
 import StoreModel from "../models/Store.model.js";
 
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants/enums.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
 import { generateMRId } from "../utils/mrId.js";
 import { buildStoreFilter } from "../utils/accessHelper.js";
@@ -67,38 +68,39 @@ const canViewGateway = isAdmin || isSuperAdmin;
 
     // ================= SEARCH =================
     if (search && search.trim() !== "") {
+      const safeSearch = escapeRegex(search.trim());
       query.$or = [
         {
           transactionId: {
-            $regex: search,
+            $regex: safeSearch,
             $options: "i",
           },
         },
 
         {
           mrPaymentId: {
-            $regex: search,
+            $regex: safeSearch,
             $options: "i",
           },
         },
 
         {
           "customer.name": {
-            $regex: search,
+            $regex: safeSearch,
             $options: "i",
           },
         },
 
         {
           "customer.email": {
-            $regex: search,
+            $regex: safeSearch,
             $options: "i",
           },
         },
 
         {
           "customer.phone": {
-            $regex: search,
+            $regex: safeSearch,
             $options: "i",
           },
         },
@@ -306,13 +308,14 @@ export const getNonSuccessPayments = async (req, res) => {
 
     // ================= SEARCH =================
     if (search && search.trim() !== "") {
+      const safeSearch = escapeRegex(search.trim());
       query.$or = [
-        { transactionId: { $regex: search, $options: "i" } },
-        { mrPaymentId: { $regex: search, $options: "i" } },
-        { gatewayOrderId: { $regex: search, $options: "i" } },
-        { "customer.name": { $regex: search, $options: "i" } },
-        { "customer.email": { $regex: search, $options: "i" } },
-        { "customer.phone": { $regex: search, $options: "i" } },
+        { transactionId: { $regex: safeSearch, $options: "i" } },
+        { mrPaymentId: { $regex: safeSearch, $options: "i" } },
+        { gatewayOrderId: { $regex: safeSearch, $options: "i" } },
+        { "customer.name": { $regex: safeSearch, $options: "i" } },
+        { "customer.email": { $regex: safeSearch, $options: "i" } },
+        { "customer.phone": { $regex: safeSearch, $options: "i" } },
       ];
     }
 

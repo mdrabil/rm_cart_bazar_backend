@@ -4,64 +4,25 @@
 
 import express from "express";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
-import { getCustomerAnalytics, getOrderAnalytics, getProductAnalytics, getStoreAnalytics, getStoreStaffAnalytics, getUserAnalytics } from "../controllers/analytics/analytics.controller.js";
-
+import { checkPermission } from "../middlewares/checkPermission.middleware.js";
+import { MODULE_KEY } from "../constants/enums.js";
+import {
+  getCustomerAnalytics,
+  getOrderAnalytics,
+  getProductAnalytics,
+  getStoreAnalytics,
+  getStoreStaffAnalytics,
+  getUserAnalytics,
+} from "../controllers/analytics/analytics.controller.js";
 
 const router = express.Router();
+const dashboardRead = checkPermission(MODULE_KEY.DASHBOARD, "read");
 
-// ================================
-// ORDER ANALYTICS
-// ================================
-
-router.get(
-  "/orders",
-  authMiddleware,
-  getOrderAnalytics
-);
-
-router.get(
-  "/products",
-  authMiddleware,
-  getProductAnalytics
-);
-// ================================
-// CUSTOMER ANALYTICS
-// ================================
-
-router.get(
-  "/customers",
-  authMiddleware,
-  getCustomerAnalytics
-);
-
-// ================================
-// STORE ANALYTICS
-// ================================
-
-router.get(
-  "/stores",
-  authMiddleware,
-  getStoreAnalytics
-);
-
-// ================================
-// STORE STAFF ANALYTICS
-// ================================
-
-router.get(
-  "/store-staff",
-  authMiddleware,
-  getStoreStaffAnalytics
-);
-
-// ================================
-// USER ANALYTICS
-// ================================
-
-router.get(
-  "/users",
-  authMiddleware,
-  getUserAnalytics
-);
+router.get("/orders", authMiddleware, dashboardRead, getOrderAnalytics);
+router.get("/products", authMiddleware, dashboardRead, getProductAnalytics);
+router.get("/customers", authMiddleware, dashboardRead, getCustomerAnalytics);
+router.get("/stores", authMiddleware, dashboardRead, getStoreAnalytics);
+router.get("/store-staff", authMiddleware, dashboardRead, getStoreStaffAnalytics);
+router.get("/users", authMiddleware, dashboardRead, getUserAnalytics);
 
 export default router;

@@ -168,6 +168,22 @@ function buildFailRedirect(baseUrl, fields) {
 
 export const getSessionStatusController = async (req, res) => {
   try {
+    const session = await Payment.getCheckoutSession(req.params.sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        status: "expired",
+        message: "Session not found or expired",
+      });
+    }
+
+    if (String(session.customerId) !== String(req.user._id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to this payment session",
+      });
+    }
+
     const result = await Payment.getSessionStatus(req.params.sessionId);
     return res.status(200).json(result);
   } catch (error) {

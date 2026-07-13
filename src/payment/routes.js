@@ -36,7 +36,7 @@ router.post("/create-order", customerAuth, createPaymentOrderController);
 router.get("/active-gateway", getActiveGatewayController);
 router.all("/return/:sessionId", paymentReturnController);
 router.get("/page/:sessionId", renderCheckoutPageController);
-router.get("/session/:sessionId/status", getSessionStatusController);
+router.get("/session/:sessionId/status", customerAuth, getSessionStatusController);
 router.post("/webhook/:gatewayName", paymentWebhookController);
 router.post("/failed", customerAuth, saveFailedPaymentController);
 router.post("/verify", customerAuth, verifyPaymentController);

@@ -15,10 +15,12 @@ import {
   resetPasswordLimiter,
   loginLimiter,
 } from "../middlewares/authRateLimit.middleware.js";
+import { authMiddleware } from "../middlewares/auth.middleware.js";
+import { bootstrapOrAdmin } from "../middlewares/adminOnly.js";
 
 const router = express.Router();
 
-router.post("/register", registerUser);
+router.post("/register", bootstrapOrAdmin, registerUser);
 router.post("/login", loginLimiter, loginUser);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", logoutUser);

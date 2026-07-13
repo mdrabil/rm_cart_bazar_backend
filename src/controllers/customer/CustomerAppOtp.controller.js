@@ -1,8 +1,9 @@
 import { sendEmail } from "../../constants/mailer.js";
 import Customer from "../../models/Customer.js";
 import CustomerOtpModel from "../../models/CustomerOtp.model.js";
-import Otp from "../../models/CustomerOtp.model.js";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { config } from "../../config/config.js";
 
 
 export const sendOtp = async (req, res) => {
@@ -97,7 +98,13 @@ export const verifyOtp = async (req, res) => {
     // ✅ success
     await CustomerOtpModel.deleteOne({ email });
 
-    res.json({ success: true, message: "OTP verified" });
+    const resetToken = jwt.sign(
+      { email, purpose: "customer-password-reset" },
+      config.jwtSecret,
+      { expiresIn: "15m" }
+    );
+
+    res.json({ success: true, message: "OTP verified", resetToken });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -107,12 +114,39 @@ export const verifyOtp = async (req, res) => {
 
 export const resetPassword = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, resetToken } = req.body;
 
-    const user = await Customer.findOne({ email });
+    if (!resetToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Password reset token is required. Verify OTP first.",
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, config.jwtSecret);
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: "Reset token expired or invalid. Please verify OTP again.",
+      });
+    }
+
+    if (
+      decoded.purpose !== "customer-password-reset" ||
+      !decoded.email ||
+      decoded.email.toLowerCase() !== String(email || "").toLowerCase()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid reset token for this email",
+      });
+    }
+
+    const user = await Customer.findOne({ email: decoded.email });
     if (!user) return res.status(400).json({ message: "User not found" });
 
-    // 🔥 HASH PASSWORD (VERY IMPORTANT)
     const hashedPassword = await bcrypt.hash(password, 10);
 
     user.password = hashedPassword;
