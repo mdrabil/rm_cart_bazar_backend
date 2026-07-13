@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { CLIENT_HELPERS, escapeHtml, mapStatus } from "../../config.js";
+import { CLIENT_HELPERS, escapeHtml, mapStatus, normalizePaymentMethodType } from "../../config.js";
 import * as webhook from "./webhook.js";
 
 const API = {
@@ -9,6 +9,27 @@ const API = {
 
 export default function createCashfreeService(credentials, gatewayDoc) {
   const base = () => API[credentials.mode] || API.development;
+
+  const headers = () => ({
+    "x-api-version": "2023-08-01",
+    "x-client-id": credentials.keyId.trim(),
+    "x-client-secret": credentials.secret.trim(),
+  });
+
+  async function fetchOrderPayments(orderId) {
+    const res = await fetch(`${base()}/orders/${orderId}/payments`, { headers: headers() });
+    const data = await res.json();
+    if (!res.ok) return [];
+    return Array.isArray(data) ? data : [];
+  }
+
+  function pickSuccessfulPayment(payments = []) {
+    return (
+      payments.find((p) => String(p.payment_status || "").toUpperCase() === "SUCCESS") ||
+      payments[0] ||
+      {}
+    );
+  }
 
   return {
     gatewayName: gatewayDoc.gatewayName,
@@ -60,28 +81,28 @@ export default function createCashfreeService(credentials, gatewayDoc) {
     },
 
     async verifyPayment({ orderId }) {
-      const res = await fetch(`${base()}/orders/${orderId}`, {
-        headers: {
-          "x-api-version": "2023-08-01",
-          "x-client-id": credentials.keyId,
-          "x-client-secret": credentials.secret,
-        },
-      });
+      const res = await fetch(`${base()}/orders/${orderId}`, { headers: headers() });
       const result = await res.json();
       if (!res.ok) throw new Error(result?.message || "Cashfree verify failed");
       if (result.order_status !== "PAID") {
         throw new Error(`Cashfree status: ${result.order_status}`);
       }
-      const payment = result?.payments?.[0] || {};
+
+      let payment = pickSuccessfulPayment(result?.payments);
+      if (!payment.cf_payment_id && !payment.payment_id) {
+        payment = pickSuccessfulPayment(await fetchOrderPayments(orderId));
+      }
+
+      const methodRaw = payment.payment_group || payment.payment_method;
       return {
         verified: true,
         transactionId: payment.cf_payment_id || payment.payment_id || orderId,
         gatewayOrderId: orderId,
-        paymentMethodType: payment.payment_method || "unknown",
-        amount: Number(result.order_amount || 0),
+        paymentMethodType: normalizePaymentMethodType(methodRaw, "cashfree"),
+        amount: Number(payment.payment_amount || result.order_amount || 0),
         currency: "INR",
         status: "SUCCESS",
-        raw: result,
+        raw: { order: result, payment },
       };
     },
 

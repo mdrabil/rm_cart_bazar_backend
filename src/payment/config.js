@@ -40,6 +40,63 @@ export function isPaidStatus(status) {
   return status === PAYMENT_STATUS.SUCCESS || status === PAYMENT_STATUS.COMPLETED;
 }
 
+const PAYMENT_METHOD_TYPES = ["card", "upi", "netbanking", "wallet", "emi", "cod"];
+
+const GATEWAY_METHOD_MAP = {
+  cashfree: {
+    upi: "upi",
+    card: "card",
+    debit_card: "card",
+    credit_card: "card",
+    prepaid_card: "card",
+    net_banking: "netbanking",
+    nb: "netbanking",
+    wallet: "wallet",
+    app: "wallet",
+    paylater: "wallet",
+    emi: "emi",
+    card_emi: "emi",
+    cardless_emi: "emi",
+    banktransfer: "netbanking",
+  },
+  razorpay: {
+    card: "card",
+    upi: "upi",
+    netbanking: "netbanking",
+    wallet: "wallet",
+    emi: "emi",
+  },
+  phonepe: {
+    pay_page: "upi",
+    upi: "upi",
+    card: "card",
+  },
+};
+
+/** Map gateway-specific payment method to Payment.paymentMethodType enum. */
+export function normalizePaymentMethodType(raw, gatewayName = "") {
+  if (raw == null || raw === "" || raw === "unknown") return undefined;
+
+  let value = raw;
+  if (typeof value === "object") {
+    value = value.payment_group || Object.keys(value)[0];
+  }
+
+  const key = String(value).toLowerCase().replace(/[\s-]/g, "_");
+  if (PAYMENT_METHOD_TYPES.includes(key)) return key;
+
+  const mapped = GATEWAY_METHOD_MAP[String(gatewayName).toLowerCase()]?.[key];
+  if (mapped) return mapped;
+
+  if (key.includes("card")) return "card";
+  if (key.includes("upi")) return "upi";
+  if (key.includes("net") || key === "nb") return "netbanking";
+  if (key.includes("wallet") || key.includes("paytm") || key.includes("phonepe")) return "wallet";
+  if (key.includes("emi")) return "emi";
+
+  return undefined;
+}
+
 // ── Credentials from DB env names → process.env ───────────────────────────────
 export function resolveCredentials(gatewayDoc) {
   if (!gatewayDoc) throw new Error("Payment gateway not configured");

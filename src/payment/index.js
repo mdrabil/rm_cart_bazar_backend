@@ -27,6 +27,7 @@ import {
   resolveApiBase,
   buildReturnUrl,
   isPaidStatus,
+  normalizePaymentMethodType,
 } from "./config.js";
 import * as webhookHandler from "./webhook.js";
 import {
@@ -163,7 +164,11 @@ export async function verifyPayment({
       payment.verificationSource = source;
       payment.verificationAttempts = attempt;
       payment.gatewayResponse = verified.raw || {};
-      payment.paymentMethodType = verified.paymentMethodType || "unknown";
+      const methodType = normalizePaymentMethodType(
+        verified.paymentMethodType,
+        resolvedGatewayName
+      );
+      if (methodType) payment.paymentMethodType = methodType;
       await payment.save({ session: db });
 
       const { order, updatedUser } = await fulfillPaidOrder({
