@@ -127,9 +127,14 @@ export const formatCart = (cart) => {
       //     (i) => i.url
       //   ) || [],
 
-      images: product.images?.map((img) => ({
-  url: img.url,
-})) || [],
+//       images: product.images?.map((img) => ({
+//   url: img.url,
+// })) || [],
+
+images:
+  product?.images?.map((img) => ({
+    url: img.url,
+  })) || [],
 
       // 🔥 CUSTOMIZATION
       layer: layer || null,

@@ -610,12 +610,41 @@ export const getAllProducts2 = async (req, res) => {
 
 
 
+const parseObjectIdList = (value) => {
+  if (!value) return [];
+
+  return String(value)
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+};
+
+const buildCategoryScopeFilter = async (categoryId) => {
+  const catId = new mongoose.Types.ObjectId(categoryId);
+  const childCategories = await CategoryModel.find({ parentCategory: catId })
+    .select("_id")
+    .lean();
+  const childIds = childCategories.map((item) => item._id);
+
+  const scope = [{ category: catId }, { subCategory: catId }];
+
+  if (childIds.length > 0) {
+    scope.push({ subCategory: { $in: childIds } });
+  }
+
+  return { $or: scope };
+};
+
 export const getAllProducts = async (req, res) => {
   try {
     const {
       page = 1,
       limit = 20,
       category,
+      subCategory,
+      minPrice,
+      maxPrice,
       search,
       sortBy,
       order
@@ -627,17 +656,45 @@ export const getAllProducts = async (req, res) => {
     let filter = {};
     let andFilters = [];
 
-  
+    const subCategoryIds = parseObjectIdList(subCategory);
 
-    // ✅ CATEGORY (id only)
     if (category && mongoose.Types.ObjectId.isValid(category)) {
-      const catId = new mongoose.Types.ObjectId(category);
+      if (subCategoryIds.length > 0) {
+        andFilters.push({ subCategory: { $in: subCategoryIds } });
+        andFilters.push(await buildCategoryScopeFilter(category));
+      } else {
+        andFilters.push(await buildCategoryScopeFilter(category));
+      }
+    } else if (subCategoryIds.length > 0) {
+      andFilters.push({ subCategory: { $in: subCategoryIds } });
+    }
+
+    const minPriceNum =
+      minPrice !== undefined && minPrice !== "" ? Number(minPrice) : null;
+    const maxPriceNum =
+      maxPrice !== undefined && maxPrice !== "" ? Number(maxPrice) : null;
+
+    if (
+      (minPriceNum !== null && !Number.isNaN(minPriceNum)) ||
+      (maxPriceNum !== null && !Number.isNaN(maxPriceNum))
+    ) {
+      const sellingPriceFilter = {};
+
+      if (minPriceNum !== null && !Number.isNaN(minPriceNum)) {
+        sellingPriceFilter.$gte = minPriceNum;
+      }
+
+      if (maxPriceNum !== null && !Number.isNaN(maxPriceNum)) {
+        sellingPriceFilter.$lte = maxPriceNum;
+      }
 
       andFilters.push({
-        $or: [
-          { category: catId },
-          { subCategory: catId }
-        ]
+        variants: {
+          $elemMatch: {
+            sellingPrice: sellingPriceFilter,
+            isActive: { $ne: false },
+          },
+        },
       });
     }
 
@@ -673,7 +730,7 @@ if (sortBy) {
 }
 
     // 🚀 PARALLEL FAST QUERY
-    const [total, productData] = await Promise.all([
+    const [total, productData, priceBoundsAgg] = await Promise.all([
       ProductModel.countDocuments(filter),
 
       ProductModel.find(filter)
@@ -684,8 +741,27 @@ if (sortBy) {
         .lean()
         .sort(sortObj)
         .skip((pageNumber - 1) * limitNumber)
-        .limit(limitNumber)
+        .limit(limitNumber),
+
+      ProductModel.aggregate([
+        { $unwind: "$variants" },
+        { $match: { "variants.isActive": { $ne: false } } },
+        {
+          $group: {
+            _id: null,
+            minPrice: { $min: "$variants.sellingPrice" },
+            maxPrice: { $max: "$variants.sellingPrice" },
+          },
+        },
+      ]),
     ]);
+
+    const priceBounds = priceBoundsAgg[0]
+      ? {
+          min: priceBoundsAgg[0].minPrice ?? 0,
+          max: priceBoundsAgg[0].maxPrice ?? 0,
+        }
+      : { min: 0, max: 0 };
 
     // ✅ SAME DATA (nothing removed)
     const products = productData.map((p) => ({
@@ -717,6 +793,7 @@ averageRating: p.averageRating || 0,
       total,
       page: pageNumber,
       limit: limitNumber,
+      priceBounds,
       products
     });
 

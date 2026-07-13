@@ -74,6 +74,7 @@ router.get(
     "/notify-requests",
     authMiddleware,
     getAllNotifyRequests
+
 );
 
 router.patch(
