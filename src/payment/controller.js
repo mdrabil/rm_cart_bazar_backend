@@ -9,6 +9,8 @@ import {
   escapeHtml,
   setPageHeaders,
   redirectHtml,
+  customerSafePaymentError,
+  CUSTOMER_PAYMENT_MESSAGE,
 } from "./config.js";
 
 export const createPaymentController = async (req, res) => {
@@ -16,7 +18,10 @@ export const createPaymentController = async (req, res) => {
     const result = await Payment.create(req.user._id, req.user, req.body);
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({ success: false, message: error.message });
+    return res.status(400).json({
+      success: false,
+      message: customerSafePaymentError(error),
+    });
   }
 };
 
@@ -36,7 +41,10 @@ export const createPaymentOrderController = async (req, res) => {
     });
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({ success: false, message: error.message });
+    return res.status(400).json({
+      success: false,
+      message: customerSafePaymentError(error),
+    });
   }
 };
 
@@ -48,7 +56,10 @@ export const verifyPaymentController = async (req, res) => {
     });
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({ success: false, message: error.message });
+    return res.status(400).json({
+      success: false,
+      message: customerSafePaymentError(error),
+    });
   }
 };
 
@@ -64,7 +75,10 @@ export const saveFailedPaymentController = async (req, res) => {
       ...result,
     });
   } catch (error) {
-    return res.status(400).json({ success: false, message: error.message });
+    return res.status(400).json({
+      success: false,
+      message: customerSafePaymentError(error),
+    });
   }
 };
 
@@ -100,7 +114,7 @@ export const renderCheckoutPageController = async (req, res) => {
     console.error("renderCheckoutPageController:", error);
     setPageHeaders(res);
     return res.status(500).send(
-      `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><title>Payment</title></head><body><h2>Payment unavailable</h2><p>${escapeHtml(error.message || "Unable to load payment page")}</p></body></html>`
+      `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><title>Payment</title></head><body><h2>Payment unavailable</h2><p>${escapeHtml(CUSTOMER_PAYMENT_MESSAGE.unavailable)}</p></body></html>`
     );
   }
 };
@@ -111,6 +125,8 @@ export const paymentReturnController = async (req, res) => {
     setPageHeaders(res);
     return res.status(200).send(redirectHtml(result.targetUrl));
   } catch (error) {
+    console.error("paymentReturnController:", error);
+    const safeReason = customerSafePaymentError(error);
     try {
       const session = await PaymentCheckoutSession.findOne({
         sessionId: req.params.sessionId,
@@ -122,8 +138,11 @@ export const paymentReturnController = async (req, res) => {
           .send(
             redirectHtml(
               buildFailRedirect(session.cancelUrl, {
-                status: error.message === "Payment cancelled" ? "cancelled" : "failed",
-                reason: error.message,
+                status:
+                  safeReason === CUSTOMER_PAYMENT_MESSAGE.cancelled
+                    ? "cancelled"
+                    : "failed",
+                reason: safeReason,
                 sessionId: session.sessionId,
               })
             )
@@ -132,7 +151,9 @@ export const paymentReturnController = async (req, res) => {
     } catch {
       /* ignore */
     }
-    return res.status(400).send(`<h2>${escapeHtml(error.message)}</h2>`);
+    return res.status(400).send(
+      `<h2>${escapeHtml(CUSTOMER_PAYMENT_MESSAGE.generic)}</h2>`
+    );
   }
 };
 
@@ -150,6 +171,10 @@ export const getSessionStatusController = async (req, res) => {
     const result = await Payment.getSessionStatus(req.params.sessionId);
     return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({ success: false, status: "failed", message: error.message });
+    return res.status(400).json({
+      success: false,
+      status: "failed",
+      message: customerSafePaymentError(error),
+    });
   }
 };

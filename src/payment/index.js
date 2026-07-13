@@ -36,6 +36,10 @@ import {
   createInitiatedPaymentRecord,
   findCompletedPayment,
 } from "./orders.js";
+import {
+  resolveSessionReturnUrl,
+  resolveSessionCancelUrl,
+} from "./redirects.js";
 
 // ── Validation helpers ────────────────────────────────────────────────────────
 
@@ -239,16 +243,14 @@ export async function create(customerId, user, body) {
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   const apiBase = resolveApiBase(platform, body.apiPublicUrl);
 
-  const defaultReturn =
-    body.returnUrl ||
-    (platform === "website"
-      ? `${appConfig.websiteUrl}/payment-return`
-      : body.returnUrl);
-  const defaultCancel =
-    body.cancelUrl ||
-    (platform === "website"
-      ? `${appConfig.websiteUrl}/payment-failed`
-      : body.cancelUrl);
+  const defaultReturn = resolveSessionReturnUrl({
+    platform,
+    returnUrl: body.returnUrl,
+  });
+  const defaultCancel = resolveSessionCancelUrl({
+    platform,
+    cancelUrl: body.cancelUrl,
+  });
 
   const gatewayCheckout = await service.createPayment({
     amount: totals.payableAmount,

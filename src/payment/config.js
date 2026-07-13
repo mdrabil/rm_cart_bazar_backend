@@ -257,6 +257,34 @@ export function redirectHtml(targetUrl) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta http-equiv="refresh" content="0;url=${safe}"/></head><body><script>location.replace("${safe}");</script></body></html>`;
 }
 
+/** Customer-safe payment messages — never expose DB / stack details. */
+export const CUSTOMER_PAYMENT_MESSAGE = Object.freeze({
+  generic: "Payment could not be completed. Please try again.",
+  unavailable: "Payment is temporarily unavailable. Please try again later.",
+  cancelled: "Payment was cancelled.",
+  sessionExpired: "Payment session expired. Please start checkout again.",
+});
+
+const INTERNAL_ERROR_PATTERNS = [
+  /validation failed/i,
+  /enum value/i,
+  /mongoose/i,
+  /mongodb/i,
+  /E11000/i,
+  /startTransaction/i,
+  /Cannot read propert/i,
+];
+
+export function customerSafePaymentError(
+  error,
+  fallback = CUSTOMER_PAYMENT_MESSAGE.generic
+) {
+  const msg = String(error?.message || "").trim();
+  if (!msg) return fallback;
+  if (INTERNAL_ERROR_PATTERNS.some((pattern) => pattern.test(msg))) return fallback;
+  return msg;
+}
+
 export function buildAutoSubmitFormHtml({ action, fields, title = "Payment" }) {
   const inputs = Object.entries(fields)
     .map(([n, v]) => `<input type="hidden" name="${escapeHtml(n)}" value="${escapeHtml(v)}"/>`)
