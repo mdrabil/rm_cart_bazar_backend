@@ -23,7 +23,7 @@ export default function createStripeService(credentials, gatewayDoc) {
         success_url: `${returnUrl}${returnUrl.includes("?") ? "&" : "?"}status=processing&sessionId=${sessionId}`,
         cancel_url: cancelUrl || returnUrl,
         "line_items[0][price_data][currency]": "inr",
-        "line_items[0][price_data][product_data][name]": "MR Brand Order",
+        "line_items[0][price_data][product_data][name]": "MRcraft Order",
         "line_items[0][price_data][unit_amount]": String(Math.round(amount * 100)),
         "line_items[0][quantity]": "1",
         client_reference_id: sessionId,

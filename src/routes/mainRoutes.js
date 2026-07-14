@@ -31,6 +31,7 @@ import paymentRoutes from "../payment/routes.js";
 import paymentGatewayRoutes from "./admin/paymentGateway.routes.js";
 import singleRoutes from "../routes/admin/single.routes.js";
 import languagePreferenceAdminRoutes from "./admin/languagePreference.routes.js";
+import AppVersionRoutes from "./appVersion.routes.js";
 
 
 
@@ -47,6 +48,7 @@ router.use("/customer/orders", customerOrdersRoutes);
 router.use("/customer/wishlist", wishListRoutes);
 router.use("/blogs", blogsRoutes);
 router.use("/payment", paymentRoutes);
+router.use("/app-version", AppVersionRoutes);
 // router.use("/admin/cms", cmsPageRoutes);
 router.use("/admin/contact", ContactUsRoutes);
 router.use("/jobs", JobRoutes);

@@ -105,7 +105,7 @@ ${CLIENT_HELPERS}
       key:"${escapeHtml(data.publicKey)}",
       amount:${Number(data.amountPaise)||0},
       currency:"INR",
-      name:"MR Brand",
+      name:"MRcraft",
       order_id:"${escapeHtml(data.gatewayOrderId)}",
       ${useRedirect ? `redirect:true, callback_url:"${callbackUrl}",` : `handler:function(response){
         var u=apiBase+"/api/payment/return/"+sessionId;

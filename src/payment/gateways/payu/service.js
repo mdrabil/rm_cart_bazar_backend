@@ -30,7 +30,7 @@ export default function createPayuService(credentials, gatewayDoc) {
     async createPayment({ amount, sessionId, customer }) {
       const txnid = sessionId.replace(/-/g, "").slice(0, 25);
       const amountStr = Number(amount).toFixed(2);
-      const productinfo = "MR Brand Order";
+      const productinfo = "MRcraft Order";
       const firstname = customer?.name || "Customer";
       const email = customer?.email || "customer@example.com";
       const phone = customer?.phone || "9999999999";
