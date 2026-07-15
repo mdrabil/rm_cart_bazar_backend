@@ -211,24 +211,21 @@ maintenance:false
 
 
 
+const appMaintenance = Boolean(data.appMaintenance);
+const webMaintenance = Boolean(data.webMaintenance);
 
+const maintenance = appMaintenance || webMaintenance;
 
 return res.json({
-
-success:true,
-maintenance:true,
-appMaintenance:
-data.appMaintenance,
-webMaintenance:
-data.webMaintenance,
-title:data.title,
-message:data.message,
-image:
-data.image,
-startDate:
-data.startDate,
-endDate:
-data.endDate
+  success: true,
+  maintenance,
+  appMaintenance,
+  webMaintenance,
+  title: data.title,
+  message: data.message,
+  image: data.image,
+  startDate: data.startDate,
+  endDate: data.endDate,
 });
 }
 catch(error)
