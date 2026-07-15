@@ -24,11 +24,11 @@ export default function createEasebuzzService(credentials, gatewayDoc) {
         key: credentials.keyId,
         txnid,
         amount: amountStr,
-        productinfo: "MRcraft Order",
+        productinfo: "MRcrafted Order",
         firstname: customer?.name || "Customer",
         email: customer?.email || "customer@example.com",
         phone: customer?.phone || "9999999999",
-        hash: buildHash({ txnid, amount: amountStr, productinfo: "MRcraft Order", firstname: customer?.name || "Customer", email: customer?.email || "customer@example.com", phone: customer?.phone }),
+        hash: buildHash({ txnid, amount: amountStr, productinfo: "MRcrafted Order", firstname: customer?.name || "Customer", email: customer?.email || "customer@example.com", phone: customer?.phone }),
       };
       return { gatewayOrderId: txnid, amountPaise: Math.round(amount * 100), metadata: { easebuzzUrl: base(), form } };
     },

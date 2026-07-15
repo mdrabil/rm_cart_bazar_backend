@@ -37,7 +37,7 @@ export const requestPasswordReset = async (email) => {
 
   await sendEmail({
     to: user.email,
-    subject: "Reset your MRCRAFT admin password",
+    subject: "Reset your MRCRAFTED admin password",
     text: `You requested a password reset. Open this link within 1 hour:\n\n${resetUrl}\n\nIf you did not request this, ignore this email.`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;">

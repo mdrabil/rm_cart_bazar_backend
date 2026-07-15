@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "MRCRAFT REST API",
+  "description": "MRCRAFTED REST API",
   "main": "index.js",
   "type": "module",
   "scripts": {
