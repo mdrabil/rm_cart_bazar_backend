@@ -65,7 +65,7 @@ export const createOrUpdateContact = async(req,res)=>{
 
     res.json({
       success:true,
-      message:"Contact page updated",
+      message:"Contact page updated successfully",
       data:contact
     })
 
