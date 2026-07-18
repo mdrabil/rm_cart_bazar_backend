@@ -6,7 +6,7 @@ import { generateMRId } from "../utils/mrId.js";
 /* ================= CREATE ================= */
 export const createBanner = async (req, res) => {
   try {
-    const { text } = req.body;
+  const { text, platform } = req.body;
 
     if (!req.file) {
       return res.status(400).json({
@@ -17,10 +17,13 @@ export const createBanner = async (req, res) => {
 
       const mrNo = await generateMRId("BNR", "BANNER");
 
-  const banner = await Banner.create({
+      
+
+ const banner = await Banner.create({
   text,
   mrNo,
-  status: req.body.status || "ACTIVE", // ✅ added
+ platform: Array.isArray(platform) ? platform : [platform || "WEB"],
+  status: req.body.status || "ACTIVE",
   image: {
     url: req.file.path,
     public_id: req.file.filename,
@@ -61,7 +64,10 @@ export const getAllBanners = async (req, res) => {
 
 export const getAllBannersApp = async (req, res) => {
   try {
-    const banners = await Banner.find({ status: "ACTIVE" })
+    const banners = await Banner.find({
+    status: "ACTIVE",
+    platform: "APP",
+})
       .sort({ mrNo: 1 })
       .select("text mrNo date image.url status");
 
@@ -79,6 +85,27 @@ export const getAllBannersApp = async (req, res) => {
     res.json({
       success: true,
       data: formatted,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching banners",
+    });
+  }
+};
+
+export const getAllBannersWeb = async (req, res) => {
+  try {
+    const banners = await Banner.find({
+      status: "ACTIVE",
+      platform: "WEB",
+    })
+      .sort({ mrNo: 1 })
+      .select("text mrNo date image.url status");
+
+    res.json({
+      success: true,
+      data: banners,
     });
   } catch (err) {
     res.status(500).json({
@@ -114,7 +141,7 @@ export const getBannerById = async (req, res) => {
 /* ================= UPDATE ================= */
 export const updateBanner = async (req, res) => {
   try {
-    const { text, mrNo } = req.body;
+   const { text, mrNo, platform } = req.body;
 
     const banner = await Banner.findById(req.params.id);
     if (!banner) {
@@ -138,6 +165,11 @@ export const updateBanner = async (req, res) => {
     banner.text = text || banner.text;
     banner.mrNo = mrNo || banner.mrNo;
     banner.status = req.body.status || banner.status;
+    banner.platform = Array.isArray(platform)
+  ? platform
+  : platform
+  ? [platform]
+  : banner.platform;
 
     await banner.save();
 

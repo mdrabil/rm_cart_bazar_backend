@@ -6,6 +6,7 @@ import {
   updateBanner,
   deleteBanner,
   getAllBannersApp,
+  getAllBannersWeb,
 } from "../controllers/banner.controller.js";
 import { singleImageUpload } from "../middlewares/upload.middleware.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
@@ -22,7 +23,8 @@ router.post(
   createBanner
 );
 router.get("/", getAllBanners);
-router.get("/public", getAllBannersApp);
+router.get("/public/app", getAllBannersApp);
+router.get("/public/web", getAllBannersWeb);
 router.get("/:id", getBannerById);
 router.put(
   "/:id",
