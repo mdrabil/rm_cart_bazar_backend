@@ -119,52 +119,138 @@ export const renderCheckoutPageController = async (req, res) => {
   }
 };
 
+// export const paymentReturnController = async (req, res) => {
+//   try {
+//     const result = await Payment.handleReturn(req.params.sessionId, req);
+//     setPageHeaders(res);
+//     return res.status(200).send(redirectHtml(result.targetUrl));
+//   } catch (error) {
+//     console.error("paymentReturnController:", error);
+//     const safeReason = customerSafePaymentError(error);
+//     try {
+//       const session = await PaymentCheckoutSession.findOne({
+//         sessionId: req.params.sessionId,
+//       });
+//       if (session?.cancelUrl) {
+//         setPageHeaders(res);
+//         return res
+//           .status(200)
+//           .send(
+//             redirectHtml(
+//               buildFailRedirect(session.cancelUrl, {
+//                 status:
+//                   safeReason === CUSTOMER_PAYMENT_MESSAGE.cancelled
+//                     ? "cancelled"
+//                     : "failed",
+//                 reason: safeReason,
+//                 sessionId: session.sessionId,
+//               })
+//             )
+//           );
+//       }
+//     } catch {
+//       /* ignore */
+//     }
+//     return res.status(400).send(
+//       `<h2>${escapeHtml(CUSTOMER_PAYMENT_MESSAGE.generic)}</h2>`
+//     );
+//   }
+// };
+
+// function buildFailRedirect(baseUrl, fields) {
+//   const joiner = baseUrl.includes("?") ? "&" : "?";
+//   const params = new URLSearchParams();
+//   Object.entries(fields).forEach(([k, v]) => {
+//     if (v != null && v !== "") params.set(k, String(v));
+//   });
+//   return `${baseUrl}${joiner}${params.toString()}`;
+// }
+
 export const paymentReturnController = async (req, res) => {
   try {
-    const result = await Payment.handleReturn(req.params.sessionId, req);
-    setPageHeaders(res);
-    return res.status(200).send(redirectHtml(result.targetUrl));
-  } catch (error) {
-    console.error("paymentReturnController:", error);
-    const safeReason = customerSafePaymentError(error);
-    try {
-      const session = await PaymentCheckoutSession.findOne({
+
+    const session =
+      await PaymentCheckoutSession.findOne({
         sessionId: req.params.sessionId,
       });
-      if (session?.cancelUrl) {
-        setPageHeaders(res);
-        return res
-          .status(200)
-          .send(
-            redirectHtml(
-              buildFailRedirect(session.cancelUrl, {
-                status:
-                  safeReason === CUSTOMER_PAYMENT_MESSAGE.cancelled
-                    ? "cancelled"
-                    : "failed",
-                reason: safeReason,
-                sessionId: session.sessionId,
-              })
-            )
-          );
-      }
-    } catch {
-      /* ignore */
+
+
+    if (!session) {
+
+      return res.status(400).send(
+        `<h2>Payment session expired</h2>`
+      );
+
     }
-    return res.status(400).send(
-      `<h2>${escapeHtml(CUSTOMER_PAYMENT_MESSAGE.generic)}</h2>`
+
+
+    setPageHeaders(res);
+
+
+    return res.status(200).send(
+      redirectHtml(
+        buildSuccessRedirect(
+          session.returnUrl,
+          {
+            status:"success",
+            sessionId:session.sessionId
+          }
+        )
+      )
     );
+
+
+  } catch(error){
+
+    console.error(
+      "paymentReturnController:",
+      error
+    );
+
+
+    return res.status(400).send(
+      `<h2>${escapeHtml(
+        CUSTOMER_PAYMENT_MESSAGE.generic
+      )}</h2>`
+    );
+
   }
 };
 
-function buildFailRedirect(baseUrl, fields) {
-  const joiner = baseUrl.includes("?") ? "&" : "?";
-  const params = new URLSearchParams();
-  Object.entries(fields).forEach(([k, v]) => {
-    if (v != null && v !== "") params.set(k, String(v));
+function buildSuccessRedirect(baseUrl, fields) {
+
+  if(!baseUrl){
+    return "/";
+  }
+
+
+  const joiner =
+    baseUrl.includes("?")
+    ? "&"
+    : "?";
+
+
+  const params =
+    new URLSearchParams();
+
+
+  Object.entries(fields)
+  .forEach(([key,value])=>{
+
+    if(value !== undefined && value !== null){
+      params.set(
+        key,
+        String(value)
+      );
+    }
+
   });
+
+
   return `${baseUrl}${joiner}${params.toString()}`;
+
 }
+
 
 export const getSessionStatusController = async (req, res) => {
   try {
