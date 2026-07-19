@@ -166,55 +166,50 @@ export const renderCheckoutPageController = async (req, res) => {
 //   return `${baseUrl}${joiner}${params.toString()}`;
 // }
 
-export const paymentReturnController = async (req, res) => {
-  try {
+export const paymentReturnController = async(req,res)=>{
 
-    const session =
-      await PaymentCheckoutSession.findOne({
-        sessionId: req.params.sessionId,
-      });
+try{
 
-
-    if (!session) {
-
-      return res.status(400).send(
-        `<h2>Payment session expired</h2>`
-      );
-
-    }
+const session =
+await PaymentCheckoutSession.findOne({
+ sessionId:req.params.sessionId
+});
 
 
-    setPageHeaders(res);
+if(!session){
+
+ throw new Error(
+ "Invalid session"
+ );
+
+}
 
 
-    return res.status(200).send(
-      redirectHtml(
-        buildSuccessRedirect(
-          session.returnUrl,
-          {
-            status:"success",
-            sessionId:session.sessionId
-          }
-        )
-      )
-    );
+// Direct redirect
+setPageHeaders(res);
 
 
-  } catch(error){
+return res.status(200)
+.send(
+redirectHtml(
+session.returnUrl+
+"?status=success"
+)
+);
 
-    console.error(
-      "paymentReturnController:",
-      error
-    );
+
+}catch(error){
+
+console.log(error);
 
 
-    return res.status(400).send(
-      `<h2>${escapeHtml(
-        CUSTOMER_PAYMENT_MESSAGE.generic
-      )}</h2>`
-    );
+return res.status(400)
+.send(
+"Payment failed"
+);
 
-  }
+}
+
 };
 
 function buildSuccessRedirect(baseUrl, fields) {
