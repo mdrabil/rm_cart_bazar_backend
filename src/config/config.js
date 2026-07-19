@@ -11,12 +11,33 @@ if (!process.env.JWT_REFRESH_SECRET) {
   throw new Error("❌ JWT_REFRESH_SECRET is not defined in environment variables");
 }
 
-const parseCorsOrigins = () => {
-  const raw = process.env.CORS_ORIGINS;
-  if (!raw || raw === "*") return true;
-  return raw.split(",").map((o) => o.trim()).filter(Boolean);
-};
+// const parseCorsOrigins = () => {
+//   const raw = process.env.CORS_ORIGINS;
+//   if (!raw || raw === "*") return true;
+//   return raw.split(",").map((o) => o.trim()).filter(Boolean);
+// };
 
+
+const parseCorsOrigins = () => {
+  // Development → allow all origins
+  if (process.env.NODE_ENV !== "production") {
+    return true;
+  }
+
+  // Production → only whitelisted domains
+  const raw = process.env.CORS_ORIGINS;
+
+  if (!raw) {
+    throw new Error(
+      "❌ CORS_ORIGINS is required in production environment"
+    );
+  }
+
+  return raw
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+};
 export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT) || 8080,
