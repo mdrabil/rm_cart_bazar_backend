@@ -65,7 +65,6 @@
 //   console.log(`Server + Socket running on port ${config.port}`);
 // });
 
-
 import express from "express";
 import http from "http";
 import cors from "cors";
@@ -107,34 +106,60 @@ app.use(
 // Compression
 app.use(compression());
 
-// CORS
-app.use(
-  cors({
-    origin(origin, callback) {
-      // Allow Postman, Mobile Apps & Server-to-Server requests
-      if (!origin) {
-        return callback(null, true);
-      }
+// ── CORS ──────────────────────────────────────────────────────────────────
+// Razorpay-initiated requests (the browser-navigated `callback_url` redirect
+// hit by /api/payment/return/:sessionId, and Razorpay's own webhook POSTs to
+// /api/payment/webhook/:gatewayName) are NOT calls from our frontend's
+// fetch/XHR. The redirect in particular is a cross-origin browser navigation
+// that DOES carry an Origin header (checkout.razorpay.com / api.razorpay.com),
+// and since that origin was never in config.corsOrigins, the strict origin
+// callback below rejected it with exactly `CORS blocked: https://api.razorpay.com`
+// — surfaced to the customer as a failed payment return even when the
+// payment itself succeeded.
+//
+// CORS exists to protect browser-mediated requests that carry the user's
+// credentials to *our* API on behalf of *another site's script*. It has no
+// meaningful protective role for endpoints whose entire purpose is to be
+// called by the gateway itself, so those two paths are exempted below rather
+// than trying to add razorpay.com to the same allowlist used for our actual
+// frontend origins (which would be overly permissive for every other route).
+const isGatewayCallbackPath = (path) =>
+  path.startsWith("/api/payment/return") || path.startsWith("/api/payment/webhook");
 
-      // Allow all origins if CORS_ORIGINS=*
-      if (config.corsOrigins === true) {
-        return callback(null, true);
-      }
+const corsMiddleware = cors({
+  origin(origin, callback) {
+    // Allow Postman, Mobile Apps & Server-to-Server requests
+    if (!origin) {
+      return callback(null, true);
+    }
 
-      // Allow only configured domains
-      if (config.corsOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+    // Allow all origins if CORS_ORIGINS=*
+    if (config.corsOrigins === true) {
+      return callback(null, true);
+    }
 
-      return callback(new Error(`CORS blocked: ${origin}`));
-    },
-    credentials: true,
-  })
-);
+    // Allow only configured domains
+    if (config.corsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`[CORS] blocked origin=${origin} path=(see next log)`);
+    return callback(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true,
+});
+
+app.use((req, res, next) => {
+  if (isGatewayCallbackPath(req.path)) {
+    return next();
+  }
+  return corsMiddleware(req, res, next);
+});
 
 app.use(cookieParser());
 
-// Payment webhook (raw body required)
+// Payment webhook (raw body required for signature verification — must run
+// before express.json() below, and is already exempted from CORS above)
 app.use("/api/payment/webhook", webhookRawBody);
 
 // Body Parser
