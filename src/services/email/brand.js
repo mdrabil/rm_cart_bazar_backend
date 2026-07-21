@@ -7,7 +7,7 @@ export const BRAND = Object.freeze({
   companyName: "MR Crafted",
   tagline: "Custom Printing & Personalized Products",
   website: "https://mrcrafted.in",
-  supportEmail: "mrcrafted2020@gmail.com",
+  supportEmail: "mrcrafted2000@gmail.com",
   phone: "+91 9801669387",
   logoUrl: "https://mrcrafted.in/images/logo/mrcrafted.png",
   logoAlt: "MRCrafted",
