@@ -16,9 +16,7 @@ import OrderModel from "../models/Order.model.js";
 import UserModel from "../models/User.model.js";
 import cloudinary from "../config/cloudinaryConfig.js";
 import MailVarificationModel from "../models/MailVarification.model.js";
-import { sendEmail } from "../constants/mailer.js";
 import { getOrCreateLanguagePreference } from "./languagePreference.controller.js";
-import { EMAIL_TYPE, sendTemplateEmail } from "../services/email/email.service.js";
 
 // ✅ Validation Schemas
 const addressSchema = Joi.object({
@@ -129,156 +127,25 @@ const orderListSchema = Joi.object({
 
 
 export const sendEmailOtp = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required",
-      });
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email address",
-      });
-    }
-
-    // Check customer already exists
-    const existingCustomer = await Customer.findOne({
-      email,
-    });
-
-    if (existingCustomer) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already registered",
-      });
-    }
-
-    // Check already verified
-    const existingVerification = await MailVarificationModel.findOne({
-      email,
-    });
-
-    if (existingVerification?.verified) {
-      return res.status(200).json({
-        success: true,
-        verified: true,
-        message: "Email already verified",
-      });
-    }
-
-    // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Remove old OTP
-    await MailVarificationModel.findOneAndDelete({
-      email,
-    });
-
-    // Save OTP first so a later email failure still allows retry
-    await MailVarificationModel.create({
-      email,
-      otp,
-      verified: false,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-    });
-
-    // Send branded OTP email (hard SMTP timeout inside mailer — never hangs forever)
-    await sendTemplateEmail({
-      type: EMAIL_TYPE.EMAIL_VERIFICATION_OTP,
-      to: email,
-      data: {
-        customerName: "Customer",
-        otp,
-        otpExpiryMinutes: 5,
-      },
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "OTP sent successfully",
-    });
-  } catch (error) {
-    console.error("Send OTP Error:", error.code || "", error.message);
-
-    const status =
-      error.code === "EMAIL_TIMEOUT" ||
-      error.code === "ESOCKET" ||
-      error.code === "ECONNECTION" ||
-      error.code === "ETIMEDOUT"
-        ? 503
-        : error.code === "EMAIL_AUTH" || error.code === "EMAIL_NOT_CONFIGURED"
-          ? 503
-          : 500;
-
-    return res.status(status).json({
-      success: false,
-      message:
-        error.message ||
-        "Failed to send OTP email. Please try again in a moment.",
-      code: error.code || "EMAIL_SEND_FAILED",
-    });
-  }
+  // Legacy alias → unified Messaging OTP (pre-signup, no Customer required)
+  const { sendAuthOtp } = await import("./messaging/otp.controller.js");
+  req.body = {
+    ...req.body,
+    identifier: req.body.identifier || req.body.email,
+    purpose: req.body.purpose || "signup",
+  };
+  return sendAuthOtp(req, res);
 };
 
 export const verifyEmailOtp = async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-
-    if (!email || !otp) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and OTP are required",
-      });
-    }
-
-    const record = await MailVarificationModel.findOne({
-      email,
-    });
-
-    if (!record) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP not found or expired",
-      });
-    }
-
-    if (record.expiresAt < new Date()) {
-      await MailVarification.deleteOne({ email });
-
-      return res.status(400).json({
-        success: false,
-        message: "OTP expired",
-      });
-    }
-
-    if (record.otp !== otp) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid OTP",
-      });
-    }
-
-    record.verified = true;
-    await record.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Email verified successfully",
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+  // Legacy alias → sessionId + otp (or email + otp fallback)
+  const { verifyAuthOtp } = await import("./messaging/otp.controller.js");
+  req.body = {
+    ...req.body,
+    purpose: req.body.purpose || "signup",
+    identifier: req.body.identifier || req.body.email,
+  };
+  return verifyAuthOtp(req, res);
 };
 
 export const createCustomer = async (req, res) => {
@@ -308,21 +175,41 @@ export const createCustomer = async (req, res) => {
     } = value;
 
     // =========================
-    // CHECK EXISTING
+    // VERIFICATION GATE (pre-signup OTP)
+    // User is NOT created yet — OTP lives in OtpVerification / MailVarification
     // =========================
 
-    const emailVerification =
-  await MailVarificationModel.findOne({
-    email,
-    verified: true,
-  });
+    const Messaging = (await import("../messaging/index.js")).default;
 
-if (!emailVerification) {
-  return res.status(400).json({
-    success: false,
-    message: "Please verify your email first",
-  });
-}
+    const mailRecord = await MailVarificationModel.findOne({
+      email,
+      verified: true,
+    });
+
+    const emailOtpVerified = await Messaging.isIdentifierVerified({
+      identifier: email,
+      purpose: "signup",
+    });
+
+    const mobileOtpVerified = await Messaging.isIdentifierVerified({
+      identifier: mobile,
+      purpose: "signup",
+    });
+
+    const emailVerified = Boolean(mailRecord || emailOtpVerified);
+    const phoneVerified = Boolean(mobileOtpVerified);
+
+    if (!emailVerified && !phoneVerified) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Please verify your email or phone first",
+      });
+    }
+
+    // =========================
+    // CHECK EXISTING
+    // =========================
 
     const existing = await Customer.findOne(
       {
@@ -359,6 +246,7 @@ if (!emailVerification) {
     // CREATE CUSTOMER
     // =========================
 
+    const now = new Date();
     const [customer] =
       await Customer.create(
         [
@@ -374,6 +262,11 @@ if (!emailVerification) {
             mrCustomerId,
 
             role: "CUSTOMER",
+
+            emailVerified,
+            phoneVerified,
+            emailVerifiedAt: emailVerified ? now : null,
+            phoneVerifiedAt: phoneVerified ? now : null,
           },
         ],
         { session }

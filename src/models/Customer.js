@@ -44,6 +44,12 @@ logo:String,
     password: { type: String, required: true, select: false },
     role: { type: String, default: "CUSTOMER" },
 
+    // Verification status — set at signup from pre-create OTP sessions
+    emailVerified: { type: Boolean, default: false },
+    phoneVerified: { type: Boolean, default: false },
+    emailVerifiedAt: { type: Date, default: null },
+    phoneVerifiedAt: { type: Date, default: null },
+
     refreshToken: String,
     isBlocked: { type: Boolean, default: false },
 

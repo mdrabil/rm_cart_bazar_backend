@@ -17,11 +17,12 @@ export const sendAuthOtp = async (req, res) => {
       identifier,
       purpose = "signup",
       countryCode,
-      customerName,
       // legacy aliases — still accepted, mapped to identifier only
       email,
       mobile,
     } = req.body || {};
+
+    let { customerName } = req.body || {};
 
     const raw = identifier || email || mobile;
     if (!raw) {
@@ -61,7 +62,7 @@ export const sendAuthOtp = async (req, res) => {
           return res.status(200).json({
             success: true,
             verified: true,
-            message: "Email already verified",
+            message: "Already verified",
           });
         }
       } else {
@@ -70,6 +71,18 @@ export const sendAuthOtp = async (req, res) => {
           return res.status(400).json({
             success: false,
             message: "Mobile number already registered",
+          });
+        }
+
+        const alreadyVerified = await Messaging.isIdentifierVerified({
+          identifier: identity.identifier,
+          purpose: "signup",
+        });
+        if (alreadyVerified) {
+          return res.status(200).json({
+            success: true,
+            verified: true,
+            message: "Already verified",
           });
         }
       }
@@ -87,15 +100,16 @@ export const sendAuthOtp = async (req, res) => {
           message: "User not found",
         });
       }
+      if (!customerName) {
+        customerName = user.fullName || "Customer";
+      }
     }
 
     const result = await Messaging.sendOTP({
       identifier: identity.identifier,
       purpose,
       countryCode,
-      customerName:
-        customerName ||
-        (purpose === "password_reset" ? undefined : "Customer"),
+      customerName: customerName || "Customer",
     });
 
     // Keep legacy MailVarification in sync for createCustomer email gate

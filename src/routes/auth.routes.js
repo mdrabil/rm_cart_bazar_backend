@@ -17,6 +17,10 @@ import {
 } from "../middlewares/authRateLimit.middleware.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { bootstrapOrAdmin } from "../middlewares/adminOnly.js";
+import {
+  sendAuthOtp,
+  verifyAuthOtp,
+} from "../controllers/messaging/otp.controller.js";
 
 const router = express.Router();
 
@@ -29,5 +33,9 @@ router.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
 router.get("/verify-reset-token/:token", verifyPasswordResetToken);
 router.post("/verify-reset-token", verifyPasswordResetToken);
 router.post("/reset-password", resetPasswordLimiter, resetPassword);
+
+// Unified customer OTP (email / phone) — identifier + sessionId contract
+router.post("/send-otp", sendAuthOtp);
+router.post("/verify-otp", verifyAuthOtp);
 
 export default router;
