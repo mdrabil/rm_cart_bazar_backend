@@ -36,7 +36,7 @@ const createTransporter = () => {
       minVersion: "TLSv1.2",
     },
     // Critical on many cloud VPS: IPv6 AAAA records cause indefinite hangs
-    family: 4,
+   
     connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS) || 10000,
     greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS) || 10000,
     socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS) || 20000,
