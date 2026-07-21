@@ -1,204 +1,322 @@
+// import nodemailer from "nodemailer";
+// import { config } from "../config/config.js";
+
+// const EMAIL_SEND_TIMEOUT_MS = Number(process.env.EMAIL_SEND_TIMEOUT_MS) || 15000;
+
+// const normalizePass = (pass = "") => String(pass).replace(/\s+/g, "").trim();
+
+// /**
+//  * Build a production-safe Nodemailer transport.
+//  * - Explicit SMTP (not only service:"gmail") for reliable VPS behaviour
+//  * - Hard timeouts so HTTP requests never hang forever
+//  * - Force IPv4 (family:4) — IPv6 SMTP hangs are a common live-server failure
+//  */
+// const createTransporter = () => {
+//   const user = config.emailUser;
+//   const pass = normalizePass(config.emailPass);
+
+//   if (!user || !pass) {
+//     return null;
+//   }
+
+//   const host = config.smtpHost || "smtp.gmail.com";
+//   const port = Number(config.smtpPort) || 587;
+//   const secure = config.smtpSecure === true || port === 465;
+
+//   return nodemailer.createTransport({
+//     host,
+//     port,
+//     secure,
+//     auth: { user, pass },
+//     // Prefer STARTTLS on 587
+//     requireTLS: !secure && port === 587,
+//     tls: {
+//       // Keep verification on in production; allow override only if needed
+//       rejectUnauthorized: config.smtpTlsRejectUnauthorized !== false,
+//       minVersion: "TLSv1.2",
+//     },
+//     // Critical on many cloud VPS: IPv6 AAAA records cause indefinite hangs
+//     family: 4,
+//     connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS) || 10000,
+//     greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS) || 10000,
+//     socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS) || 20000,
+//     pool: true,
+//     maxConnections: 3,
+//     maxMessages: 50,
+//     rateDelta: 1000,
+//     rateLimit: 5,
+//   });
+// };
+
+// let transporter = createTransporter();
+
+// const withTimeout = (promise, ms, label = "Email send") =>
+//   new Promise((resolve, reject) => {
+//     const timer = setTimeout(() => {
+//       const err = new Error(
+//         `${label} timed out after ${ms}ms. Check SMTP credentials, outbound ports 587/465, and firewall.`
+//       );
+//       err.code = "EMAIL_TIMEOUT";
+//       reject(err);
+//     }, ms);
+
+//     promise
+//       .then((value) => {
+//         clearTimeout(timer);
+//         resolve(value);
+//       })
+//       .catch((err) => {
+//         clearTimeout(timer);
+//         reject(err);
+//       });
+//   });
+
+// /**
+//  * Verify SMTP connectivity (non-blocking helper for startup / health checks).
+//  */
+// export const verifyEmailTransport = async () => {
+//   if (!transporter) {
+//     console.warn("[Email] Transport not configured (EMAIL_USER / EMAIL_PASS missing)");
+//     return false;
+//   }
+
+//   try {
+//     await withTimeout(
+//       transporter.verify(),
+//       Number(process.env.SMTP_VERIFY_TIMEOUT_MS) || 10000,
+//       "SMTP verify"
+//     );
+//     console.log(
+//       `[Email] SMTP ready → ${config.smtpHost || "smtp.gmail.com"}:${config.smtpPort || 587} as ${config.emailUser}`
+//     );
+//     return true;
+//   } catch (error) {
+//     console.error("[Email] SMTP verify failed:", error.code || "", error.message);
+//     return false;
+//   }
+// };
+
+// /**
+//  * Send email. Supports legacy `(to, subject, text, html?)` and object payloads.
+//  * Always applies a hard timeout so API requests cannot hang on production SMTP.
+//  */
+// export const sendEmail = async (to, subject, text, html) => {
+//   let mailOptions;
+
+//   if (typeof to === "object" && to !== null && !Array.isArray(to)) {
+//     mailOptions = {
+//       from: to.from || `"MR Crafted" <${config.emailUser}>`,
+//       ...to,
+//     };
+//   } else {
+//     mailOptions = {
+//       from: `"MR Crafted" <${config.emailUser}>`,
+//       to,
+//       subject,
+//       text,
+//       ...(html ? { html } : {}),
+//     };
+//   }
+
+//   if (!mailOptions.to || !mailOptions.subject) {
+//     throw Object.assign(new Error("Email recipient and subject are required"), {
+//       code: "EMAIL_VALIDATION",
+//     });
+//   }
+
+//   if (!config.emailUser || !normalizePass(config.emailPass)) {
+//     throw Object.assign(new Error("Email service is not configured"), {
+//       code: "EMAIL_NOT_CONFIGURED",
+//     });
+//   }
+
+//   // Recreate transporter if credentials were loaded late / previously missing
+//   if (!transporter) {
+//     transporter = createTransporter();
+//   }
+
+//   if (!transporter) {
+//     throw Object.assign(new Error("Email transport could not be created"), {
+//       code: "EMAIL_TRANSPORT",
+//     });
+//   }
+
+//   const startedAt = Date.now();
+//   const toList = Array.isArray(mailOptions.to)
+//     ? mailOptions.to.join(",")
+//     : String(mailOptions.to);
+
+//   try {
+//     const info = await withTimeout(
+//       transporter.sendMail(mailOptions),
+//       EMAIL_SEND_TIMEOUT_MS,
+//       "Email send"
+//     );
+
+//     console.log(
+//       `[Email] Sent OK → ${toList} | ${mailOptions.subject} | ${Date.now() - startedAt}ms | id=${info.messageId || "n/a"}`
+//     );
+//     return info;
+//   } catch (error) {
+//     console.error(
+//       `[Email] FAILED → ${toList} | ${mailOptions.subject} | ${Date.now() - startedAt}ms | code=${error.code || "UNKNOWN"} | ${error.message}`
+//     );
+
+//     // Surface actionable messages for clients / logs
+//     if (error.code === "EAUTH") {
+//       throw Object.assign(
+//         new Error(
+//           "Email authentication failed. Check EMAIL_USER and EMAIL_PASS (Gmail App Password, no spaces)."
+//         ),
+//         { code: "EMAIL_AUTH", cause: error }
+//       );
+//     }
+
+//     if (
+//       error.code === "ESOCKET" ||
+//       error.code === "ECONNECTION" ||
+//       error.code === "ETIMEDOUT" ||
+//       error.code === "EMAIL_TIMEOUT"
+//     ) {
+//       throw Object.assign(
+//         new Error(
+//           "Unable to reach the email server. Ensure the VPS allows outbound SMTP on ports 587/465 (firewall / security group)."
+//         ),
+//         { code: error.code || "EMAIL_TIMEOUT", cause: error }
+//       );
+//     }
+
+//     throw error;
+//   }
+// };
+
+// /**
+//  * Fire-and-forget send — never blocks the HTTP response.
+//  */
+// export const sendEmailAsync = (payload) => {
+//   setImmediate(() => {
+//     sendEmail(payload).catch((err) => {
+//       console.error("[Email] Async send failed:", err.code || "", err.message);
+//     });
+//   });
+// };
+
+// export default sendEmail;
+
+
+
+
 import nodemailer from "nodemailer";
-import { config } from "../config/config.js";
 
-const EMAIL_SEND_TIMEOUT_MS = Number(process.env.EMAIL_SEND_TIMEOUT_MS) || 15000;
 
-const normalizePass = (pass = "") => String(pass).replace(/\s+/g, "").trim();
+const appEmail = process.env.EMAIL_USER;
+const appPassword = process.env.EMAIL_PASS?.replace(/\s+/g, "");
 
-/**
- * Build a production-safe Nodemailer transport.
- * - Explicit SMTP (not only service:"gmail") for reliable VPS behaviour
- * - Hard timeouts so HTTP requests never hang forever
- * - Force IPv4 (family:4) — IPv6 SMTP hangs are a common live-server failure
- */
-const createTransporter = () => {
-  const user = config.emailUser;
-  const pass = normalizePass(config.emailPass);
 
-  if (!user || !pass) {
-    return null;
-  }
+const transporter = nodemailer.createTransport({
+  service: "gmail",
 
-  const host = config.smtpHost || "smtp.gmail.com";
-  const port = Number(config.smtpPort) || 587;
-  const secure = config.smtpSecure === true || port === 465;
+  auth: {
+    user: appEmail,
+    pass: appPassword,
+  },
+});
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-    // Prefer STARTTLS on 587
-    requireTLS: !secure && port === 587,
-    tls: {
-      // Keep verification on in production; allow override only if needed
-      rejectUnauthorized: config.smtpTlsRejectUnauthorized !== false,
-      minVersion: "TLSv1.2",
-    },
-    // Critical on many cloud VPS: IPv6 AAAA records cause indefinite hangs
-    family: 4,
-    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS) || 10000,
-    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS) || 10000,
-    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS) || 20000,
-    pool: true,
-    maxConnections: 3,
-    maxMessages: 50,
-    rateDelta: 1000,
-    rateLimit: 5,
-  });
-};
 
-let transporter = createTransporter();
-
-const withTimeout = (promise, ms, label = "Email send") =>
-  new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      const err = new Error(
-        `${label} timed out after ${ms}ms. Check SMTP credentials, outbound ports 587/465, and firewall.`
-      );
-      err.code = "EMAIL_TIMEOUT";
-      reject(err);
-    }, ms);
-
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-  });
-
-/**
- * Verify SMTP connectivity (non-blocking helper for startup / health checks).
- */
+// Verify Gmail SMTP
 export const verifyEmailTransport = async () => {
-  if (!transporter) {
-    console.warn("[Email] Transport not configured (EMAIL_USER / EMAIL_PASS missing)");
+
+  try {
+
+    await transporter.verify();
+
+    console.log("✅ Gmail SMTP Ready");
+
+    return true;
+
+  } catch (error) {
+
+    console.log(
+      "❌ Gmail SMTP Error:",
+      error.message
+    );
+
     return false;
   }
 
-  try {
-    await withTimeout(
-      transporter.verify(),
-      Number(process.env.SMTP_VERIFY_TIMEOUT_MS) || 10000,
-      "SMTP verify"
-    );
-    console.log(
-      `[Email] SMTP ready → ${config.smtpHost || "smtp.gmail.com"}:${config.smtpPort || 587} as ${config.emailUser}`
-    );
-    return true;
-  } catch (error) {
-    console.error("[Email] SMTP verify failed:", error.code || "", error.message);
-    return false;
-  }
 };
 
-/**
- * Send email. Supports legacy `(to, subject, text, html?)` and object payloads.
- * Always applies a hard timeout so API requests cannot hang on production SMTP.
- */
-export const sendEmail = async (to, subject, text, html) => {
-  let mailOptions;
 
-  if (typeof to === "object" && to !== null && !Array.isArray(to)) {
-    mailOptions = {
-      from: to.from || `"MR Crafted" <${config.emailUser}>`,
-      ...to,
-    };
-  } else {
-    mailOptions = {
-      from: `"MR Crafted" <${config.emailUser}>`,
-      to,
-      subject,
-      text,
-      ...(html ? { html } : {}),
-    };
-  }
 
-  if (!mailOptions.to || !mailOptions.subject) {
-    throw Object.assign(new Error("Email recipient and subject are required"), {
-      code: "EMAIL_VALIDATION",
-    });
-  }
-
-  if (!config.emailUser || !normalizePass(config.emailPass)) {
-    throw Object.assign(new Error("Email service is not configured"), {
-      code: "EMAIL_NOT_CONFIGURED",
-    });
-  }
-
-  // Recreate transporter if credentials were loaded late / previously missing
-  if (!transporter) {
-    transporter = createTransporter();
-  }
-
-  if (!transporter) {
-    throw Object.assign(new Error("Email transport could not be created"), {
-      code: "EMAIL_TRANSPORT",
-    });
-  }
-
-  const startedAt = Date.now();
-  const toList = Array.isArray(mailOptions.to)
-    ? mailOptions.to.join(",")
-    : String(mailOptions.to);
+// Send Email
+export const sendEmail = async ({
+  to,
+  subject,
+  text,
+  html
+}) => {
 
   try {
-    const info = await withTimeout(
-      transporter.sendMail(mailOptions),
-      EMAIL_SEND_TIMEOUT_MS,
-      "Email send"
-    );
+
+    const info = await transporter.sendMail({
+
+      from: appEmail,
+
+      to,
+
+      subject,
+
+      text,
+
+      html
+
+    });
+
 
     console.log(
-      `[Email] Sent OK → ${toList} | ${mailOptions.subject} | ${Date.now() - startedAt}ms | id=${info.messageId || "n/a"}`
+      "✅ Email Sent:",
+      info.messageId
     );
+
+
     return info;
+
+
   } catch (error) {
-    console.error(
-      `[Email] FAILED → ${toList} | ${mailOptions.subject} | ${Date.now() - startedAt}ms | code=${error.code || "UNKNOWN"} | ${error.message}`
+
+
+    console.log(
+      "❌ Email Sending Error:",
+      error.message
     );
 
-    // Surface actionable messages for clients / logs
-    if (error.code === "EAUTH") {
-      throw Object.assign(
-        new Error(
-          "Email authentication failed. Check EMAIL_USER and EMAIL_PASS (Gmail App Password, no spaces)."
-        ),
-        { code: "EMAIL_AUTH", cause: error }
-      );
-    }
-
-    if (
-      error.code === "ESOCKET" ||
-      error.code === "ECONNECTION" ||
-      error.code === "ETIMEDOUT" ||
-      error.code === "EMAIL_TIMEOUT"
-    ) {
-      throw Object.assign(
-        new Error(
-          "Unable to reach the email server. Ensure the VPS allows outbound SMTP on ports 587/465 (firewall / security group)."
-        ),
-        { code: error.code || "EMAIL_TIMEOUT", cause: error }
-      );
-    }
 
     throw error;
+
   }
+
 };
 
-/**
- * Fire-and-forget send — never blocks the HTTP response.
- */
-export const sendEmailAsync = (payload) => {
-  setImmediate(() => {
-    sendEmail(payload).catch((err) => {
-      console.error("[Email] Async send failed:", err.code || "", err.message);
+
+
+// Non blocking email
+export const sendEmailAsync = (data)=>{
+
+  setImmediate(()=>{
+
+    sendEmail(data)
+    .catch(err=>{
+
+      console.log(
+        "Async Email Error:",
+        err.message
+      );
+
     });
+
   });
+
 };
+
 
 export default sendEmail;
