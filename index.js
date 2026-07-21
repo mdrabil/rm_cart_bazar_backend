@@ -206,12 +206,12 @@ app.use(errorHandler);
 // Socket.IO
 initSocket(server);
 
-// import { verifyEmailTransport } from "./src/constants/mailer.js";
+import { verifyEmailTransport } from "./src/constants/mailer.js";
 
 // Start Server
 server.listen(config.port, "0.0.0.0", () => {
   console.log(`🚀 Server + Socket running on port ${config.port}`);
 
   // Non-blocking SMTP health check — surfaces production mail misconfig in PM2 logs
-  // verifyEmailTransport().catch(() => {});
+  verifyEmailTransport().catch(() => {});
 });

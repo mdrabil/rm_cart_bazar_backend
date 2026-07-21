@@ -205,93 +205,132 @@
 
 
 
-
 import nodemailer from "nodemailer";
-
-
-const appEmail = process.env.EMAIL_USER;
-const appPassword = process.env.EMAIL_PASS?.replace(/\s+/g, "");
+import { config } from "../config/config.js";
 
 
 const transporter = nodemailer.createTransport({
+
   service: "gmail",
 
   auth: {
-    user: appEmail,
-    pass: appPassword,
-  },
+    user: config.emailUser,
+    pass: String(config.emailPass).replace(/\s+/g, "")
+  }
+
 });
 
 
-// Verify Gmail SMTP
+
+// SMTP CHECK
 export const verifyEmailTransport = async () => {
 
   try {
 
+    console.log("📧 Checking Gmail SMTP...");
+
     await transporter.verify();
 
-    console.log("✅ Gmail SMTP Ready");
+
+    console.log(
+      "✅ Gmail SMTP Connected Successfully",
+      {
+        user: config.emailUser
+      }
+    );
+
 
     return true;
 
+
   } catch (error) {
 
-    console.log(
-      "❌ Gmail SMTP Error:",
-      error.message
+
+    console.error(
+      "❌ Gmail SMTP Connection Failed",
+      {
+        code: error.code,
+        message: error.message
+      }
     );
 
+
     return false;
+
   }
 
 };
 
 
 
-// Send Email
+
+// SEND EMAIL
 export const sendEmail = async ({
   to,
   subject,
-  text,
-  html
+  html,
+  text = ""
 }) => {
+
 
   try {
 
+
+    console.log(
+      "📨 Sending Email...",
+      {
+        from: config.emailUser,
+        to,
+        subject
+      }
+    );
+
+
     const info = await transporter.sendMail({
 
-      from: appEmail,
+      from: `"MR Crafted" <${config.emailUser}>`,
 
       to,
 
       subject,
 
-      text,
+      html,
 
-      html
+      text
 
     });
 
 
+
     console.log(
-      "✅ Email Sent:",
-      info.messageId
+      "✅ Email Sent Successfully",
+      {
+        messageId: info.messageId,
+        response: info.response
+      }
     );
+
 
 
     return info;
 
 
-  } catch (error) {
+
+  } catch(error){
 
 
-    console.log(
-      "❌ Email Sending Error:",
-      error.message
+    console.error(
+      "❌ Email Sending Failed",
+      {
+        code:error.code,
+        message:error.message,
+        command:error.command
+      }
     );
 
 
     throw error;
+
 
   }
 
@@ -299,24 +338,42 @@ export const sendEmail = async ({
 
 
 
-// Non blocking email
-export const sendEmailAsync = (data)=>{
 
-  setImmediate(()=>{
+// ASYNC EMAIL (OPTIONAL)
+export const sendEmailAsync = (payload)=>{
 
-    sendEmail(data)
-    .catch(err=>{
+
+  setImmediate(async()=>{
+
+
+    try{
+
+
+      await sendEmail(payload);
+
 
       console.log(
-        "Async Email Error:",
-        err.message
+        "✅ Async Email Completed"
       );
 
-    });
+
+    }catch(error){
+
+
+      console.error(
+        "❌ Async Email Failed",
+        error.message
+      );
+
+
+    }
+
 
   });
 
+
 };
+
 
 
 export default sendEmail;
