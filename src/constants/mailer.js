@@ -236,12 +236,10 @@ export const sendEmail = async ({
       text,
     });
 
-
     console.log(
       "Email sent:",
       info.messageId
     );
-
 
     return info;
 
@@ -260,7 +258,32 @@ export const sendEmail = async ({
 };
 
 
-// Test SMTP
+
+// Non blocking email
+export const sendEmailAsync = (payload) => {
+
+  setImmediate(async () => {
+
+    try {
+
+      await sendEmail(payload);
+
+    } catch(error){
+
+      console.error(
+        "Async Email Error:",
+        error.message
+      );
+
+    }
+
+  });
+
+};
+
+
+
+// SMTP Check
 export const verifyEmailTransport = async () => {
 
   try {
