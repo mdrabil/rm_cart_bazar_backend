@@ -11,6 +11,7 @@ import StoreStaffModel from "../models/StoreStaff.model.js";
 import { buildStoreFilter, getUserStoreRole } from "../utils/accessHelper.js";
 import { STAFF_USER_ROLE } from "../constants/enums.js";
 import RoleModel from "../models/Role.model.js";
+import { EMAIL_TYPE, sendTemplateEmail } from "../services/email/email.service.js";
 
 
 
@@ -363,22 +364,51 @@ export const createStoreStaff = async (req, res) => {
     // =========================
     // 📧 EMAIL NEW USER
     // =========================
-    if (isNewUserCreated && user.email) {
-      setImmediate(() => {
-        sendEmail(
-          user.email,
-          "Your Account Created",
-          `Hello ${user.fullName},
+//     if (isNewUserCreated && user.email) {
+//       setImmediate(() => {
+//         sendEmail(
+//           user.email,
+//           "Your Account Created",
+//           `Hello ${user.fullName},
 
-Your account has been created.
+// Your account has been created.
 
-Username: ${user.email}
-Password: ${plainPassword}
+// Username: ${user.email}
+// Password: ${plainPassword}
 
-Please change password after login.`
-        );
-      });
+// Please change password after login.`
+//         );
+//       });
+//     }
+
+if (isNewUserCreated && user.email) {
+
+  sendTemplateEmail({
+    type: EMAIL_TYPE.ACCOUNT_CREATED,
+
+    to: user.email,
+
+    data: {
+
+      customerName: user.fullName,
+
+      email: user.email,
+
+      password: plainPassword,
+
+
     }
+
+  }).catch(err => {
+
+    console.error(
+      "Account email failed:",
+      err.message
+    );
+
+  });
+
+}
 
     return res.status(201).json({
       success: true,

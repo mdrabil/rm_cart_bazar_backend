@@ -61,8 +61,8 @@ export const config = {
   apiPublicUrl: (process.env.API_PUBLIC_URL || "http://localhost:4001").replace(/\/$/, ""),
   paymentWebhookBaseUrl: (process.env.PAYMENT_WEBHOOK_BASE_URL || process.env.API_PUBLIC_URL || "")
     .replace(/\/$/, ""),
-  appPaymentScheme: process.env.APP_PAYMENT_SCHEME || "mrapp",
-  appPaymentSchemes: (process.env.APP_PAYMENT_SCHEMES || "mrapp,exp")
+  appPaymentScheme: process.env.APP_PAYMENT_SCHEME || "mrcrafted",
+  appPaymentSchemes: (process.env.APP_PAYMENT_SCHEMES || "mrcrafted,exp")
     .split(",")
     .map((scheme) => scheme.trim())
     .filter(Boolean),

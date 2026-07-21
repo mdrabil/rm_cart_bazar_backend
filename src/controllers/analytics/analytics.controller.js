@@ -4,6 +4,7 @@ import OrderModel from "../../models/Order.model.js";
 import ProductModel from "../../models/Product.model.js";
 import StoreModel from "../../models/Store.model.js";
 import StoreStaffModel from "../../models/StoreStaff.model.js";
+import Traffic from "../../models/Traffic.js";
 import UserModel from "../../models/User.model.js";
 import { buildStoreFilter } from "../../utils/accessHelper.js";
 import { calculateGrowth } from "../../utils/calculateGrowth.js";
@@ -2040,3 +2041,259 @@ export const getStoreAnalytics = async (
     });
   }
 };
+
+
+
+const getMonthRange = (
+  date = new Date()
+) => {
+  const start = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    1
+  );
+
+  const end = new Date(
+    date.getFullYear(),
+    date.getMonth() + 1,
+    1
+  );
+
+  return { start, end };
+};
+
+const calculatePercentage = (
+  current,
+  previous
+) => {
+  if (previous === 0 && current > 0) {
+    return 100;
+  }
+
+  if (previous === 0) {
+    return 0;
+  }
+
+  return Number(
+    (
+      ((current - previous) / previous) *
+      100
+    ).toFixed(1)
+  );
+};
+ 
+
+export const getTrafficStats =async (req, res) => {
+    try {
+      // current month
+      const currentMonth =
+        getMonthRange(new Date());
+
+      // last month
+      const lastMonthDate =
+        new Date();
+
+      lastMonthDate.setMonth(
+        lastMonthDate.getMonth() - 1
+      );
+
+      const lastMonth =
+        getMonthRange(lastMonthDate);
+
+      // total traffic
+      const totalTraffic =
+        await Traffic.countDocuments();
+
+      // current month traffic
+      const currentMonthTraffic =
+        await Traffic.countDocuments({
+          createdAt: {
+            $gte: currentMonth.start,
+            $lt: currentMonth.end,
+          },
+        });
+
+      // last month traffic
+      const lastMonthTraffic =
+        await Traffic.countDocuments({
+          createdAt: {
+            $gte: lastMonth.start,
+            $lt: lastMonth.end,
+          },
+        });
+
+      // difference
+      const difference =currentMonthTraffic - lastMonthTraffic;
+
+      // trend
+      const trend = difference >= 0 ? "increase" : "decrease";
+
+      // percentage
+      const percentage = calculatePercentage(currentMonthTraffic,lastMonthTraffic);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          totalTraffic,
+
+          currentMonthTraffic,
+
+          lastMonthTraffic,
+
+          difference:
+            Math.abs(difference),
+
+          trend,
+
+          percentage,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  };
+
+export const deleteTrafficBulk = async(req,res)=>{
+try{
+const { ids }=req.body;
+
+if(!ids?.length){
+
+return res.status(400).json({
+ success:false,
+ message:"No records selected"
+});
+
+}
+
+await Traffic.deleteMany({
+ _id:{
+   $in:ids
+ }
+});
+res.json({
+ success:true,
+ message:"Traffic deleted successfully"
+});
+
+
+}catch(error){
+
+res.status(500).json({
+ success:false,
+ message:error.message
+});
+
+}
+
+}
+
+// ======================================
+// TRAFFIC LIST WITH PAGINATION
+// ======================================
+
+export const getTrafficList = async(req,res)=>{
+
+try{
+
+
+const page =Number(req.query.page) || 1;
+
+
+const limit =Number(req.query.limit) || 20;
+
+
+const skip =(page-1)*limit;
+
+
+
+const {startDate,endDate}=req.query;
+
+
+
+let filter={};
+
+
+
+if(startDate && endDate){
+
+filter.createdAt={
+
+$gte:new Date(startDate),
+
+$lte:new Date(endDate)
+
+};
+
+}
+
+
+
+const total = await Traffic.countDocuments(filter);
+
+
+
+const data = await Traffic.find(filter)
+
+.sort({createdAt:-1})
+.skip(skip)
+.limit(limit);
+
+res.json({
+success:true,
+data,
+
+pagination:{
+page,
+limit,
+total,
+totalPages:
+Math.ceil(total/limit)
+
+}
+
+});
+
+
+
+}catch(error){
+res.status(500).json({
+success:false,
+message:error.message
+});
+}
+};
+
+
+
+
+
+export const deleteTrafficByDate = async(req,res)=>{
+
+try{
+
+
+const {startDate,endDate}=req.body;
+
+
+
+await Traffic.deleteMany({createdAt:{$gte:new Date(startDate),$lte:new Date(endDate)}});
+
+
+res.json({
+
+success:true,
+message:"Traffic deleted by date range"
+
+});
+
+
+}catch(error){
+res.status(500).json({
+success:false,
+message:error.message
+});
+}}

@@ -33,6 +33,7 @@ import singleRoutes from "../routes/admin/single.routes.js";
 import languagePreferenceAdminRoutes from "./admin/languagePreference.routes.js";
 import AppVersionRoutes from "./appVersion.routes.js";
 import Maintenance from "./maintenance.routes.js";
+import trafficRoutes from "../routes/trafficRoutes.js";
 
 
 
@@ -49,6 +50,7 @@ router.use("/customer/orders", customerOrdersRoutes);
 router.use("/customer/wishlist", wishListRoutes);
 router.use("/blogs", blogsRoutes);
 router.use("/payment", paymentRoutes);
+router.use("/traffic", trafficRoutes);
 router.use("/app-version", AppVersionRoutes);
 router.use("/maintenance", Maintenance);
 // router.use("/admin/cms", cmsPageRoutes);

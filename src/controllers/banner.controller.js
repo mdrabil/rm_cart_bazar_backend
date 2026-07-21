@@ -103,9 +103,20 @@ export const getAllBannersWeb = async (req, res) => {
       .sort({ mrNo: 1 })
       .select("text mrNo date image.url status");
 
+       const formatted = banners.map((b) => ({
+      _id: b._id,
+      text: b.text,
+      mrNo: b.mrNo,
+      status: b.status,
+      date: b.date,
+      image: {
+        url: b.image?.url,
+      },
+    }));
+
     res.json({
       success: true,
-      data: banners,
+      data: formatted,
     });
   } catch (err) {
     res.status(500).json({

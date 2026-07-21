@@ -7,11 +7,15 @@ import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { checkPermission } from "../middlewares/checkPermission.middleware.js";
 import { MODULE_KEY } from "../constants/enums.js";
 import {
+  deleteTrafficBulk,
+  deleteTrafficByDate,
   getCustomerAnalytics,
   getOrderAnalytics,
   getProductAnalytics,
   getStoreAnalytics,
   getStoreStaffAnalytics,
+  getTrafficList,
+  getTrafficStats,
   getUserAnalytics,
 } from "../controllers/analytics/analytics.controller.js";
 
@@ -24,5 +28,10 @@ router.get("/customers", authMiddleware, dashboardRead, getCustomerAnalytics);
 router.get("/stores", authMiddleware, dashboardRead, getStoreAnalytics);
 router.get("/store-staff", authMiddleware, dashboardRead, getStoreStaffAnalytics);
 router.get("/users", authMiddleware, dashboardRead, getUserAnalytics);
+router.get("/traffic/stats",authMiddleware,checkPermission(MODULE_KEY.TRAFFIC, "read"),getTrafficStats);
+router.delete("/traffic/bulk-delete",authMiddleware,checkPermission(MODULE_KEY.TRAFFIC, "delete"),deleteTrafficBulk);
+router.delete("/traffic/date-delete",authMiddleware,checkPermission(MODULE_KEY.TRAFFIC, "delete"),deleteTrafficByDate);
+router.get("/traffic/list",authMiddleware,checkPermission(MODULE_KEY.TRAFFIC, "read"),getTrafficList);
+
 
 export default router;

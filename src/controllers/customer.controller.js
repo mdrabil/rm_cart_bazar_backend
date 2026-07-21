@@ -18,6 +18,7 @@ import cloudinary from "../config/cloudinaryConfig.js";
 import MailVarificationModel from "../models/MailVarification.model.js";
 import { sendEmail } from "../constants/mailer.js";
 import { getOrCreateLanguagePreference } from "./languagePreference.controller.js";
+import { EMAIL_TYPE, sendTemplateEmail } from "../services/email/email.service.js";
 
 // ✅ Validation Schemas
 const addressSchema = Joi.object({
@@ -51,6 +52,82 @@ const orderListSchema = Joi.object({
 
 
 
+// export const sendEmailOtp = async (req, res) => {
+//   try {
+//     const { email } = req.body;
+
+//     if (!email) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Email is required",
+//       });
+//     }
+
+//     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+//     if (!emailRegex.test(email)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid email address",
+//       });
+//     }
+
+//     // ✅ Check customer already exists
+//     const existingCustomer = await Customer.findOne({ email });
+
+//     if (existingCustomer) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Email already registered",
+//       });
+//     }
+
+//     // ✅ Check already verified
+//     const existingVerification = await MailVarificationModel.findOne({
+//       email,
+//     });
+
+//     if (existingVerification?.verified) {
+//       return res.status(200).json({
+//         success: true,
+//         verified:true,
+//         message: "Email already verified",
+//       });
+//     }
+
+//     const otp = Math.floor(
+//       100000 + Math.random() * 900000
+//     ).toString();
+
+//     // remove old otp record
+//     await MailVarificationModel.findOneAndDelete({ email });
+
+//     await MailVarificationModel.create({
+//       email,
+//       otp,
+//       verified: false,
+//       expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+//     });
+
+//     await sendEmail(
+//       email,
+//       "Email Verification OTP",
+//       `Your OTP is ${otp}. It is valid for 5 minutes. Do not share it.`
+//     );
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "OTP sent successfully",
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
+
 export const sendEmailOtp = async (req, res) => {
   try {
     const { email } = req.body;
@@ -62,6 +139,8 @@ export const sendEmailOtp = async (req, res) => {
       });
     }
 
+
+    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(email)) {
@@ -71,58 +150,127 @@ export const sendEmailOtp = async (req, res) => {
       });
     }
 
-    // ✅ Check customer already exists
-    const existingCustomer = await Customer.findOne({ email });
 
-    if (existingCustomer) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already registered",
-      });
-    }
-
-    // ✅ Check already verified
-    const existingVerification = await MailVarificationModel.findOne({
+    // Check customer already exists
+    const existingCustomer = await Customer.findOne({
       email,
     });
 
-    if (existingVerification?.verified) {
-      return res.status(200).json({
-        success: true,
-        verified:true,
-        message: "Email already verified",
+
+    if (existingCustomer) {
+      return res.status(400).json({
+        success:false,
+        message:"Email already registered",
       });
     }
 
+
+
+    // Check already verified
+    const existingVerification =
+      await MailVarificationModel.findOne({
+        email,
+      });
+
+
+    if(existingVerification?.verified){
+
+      return res.status(200).json({
+        success:true,
+        verified:true,
+        message:"Email already verified",
+      });
+
+    }
+
+
+
+    // Generate OTP
     const otp = Math.floor(
       100000 + Math.random() * 900000
     ).toString();
 
-    // remove old otp record
-    await MailVarificationModel.findOneAndDelete({ email });
 
-    await MailVarificationModel.create({
+
+    // Remove old OTP
+    await MailVarificationModel.findOneAndDelete({
       email,
-      otp,
-      verified: false,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     });
 
-    await sendEmail(
+
+
+    // Save OTP
+    await MailVarificationModel.create({
+
       email,
-      "Email Verification OTP",
-      `Your OTP is ${otp}. It is valid for 5 minutes. Do not share it.`
-    );
+
+      otp,
+
+      verified:false,
+
+      expiresAt:new Date(
+        Date.now() + 5 * 60 * 1000
+      ),
+
+    });
+
+
+
+    // =====================================
+    // SEND MR CRAFTED BRANDED EMAIL
+    // =====================================
+
+    await sendTemplateEmail({
+
+      type: EMAIL_TYPE.EMAIL_VERIFICATION_OTP,
+
+
+      to: email,
+
+
+      data: {
+
+        customerName:"Customer",
+
+        otp,
+
+        otpExpiryMinutes:5,
+
+
+      }
+
+    });
+
+
 
     return res.status(200).json({
-      success: true,
-      message: "OTP sent successfully",
+
+      success:true,
+
+      message:"OTP sent successfully",
+
     });
-  } catch (error) {
+
+
+
+  } catch(error){
+
+
+    console.error(
+      "Send OTP Error:",
+      error
+    );
+
+
     return res.status(500).json({
-      success: false,
-      message: error.message,
+
+      success:false,
+
+      message:error.message,
+
     });
+
+
   }
 };
 

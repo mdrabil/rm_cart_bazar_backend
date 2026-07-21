@@ -5,6 +5,7 @@ import { USER_ROLE } from "../constants/enums.js";
 import RoleModel from "../models/Role.model.js";
 import cloudinary from "../config/cloudinaryConfig.js";
 import { sendEmail } from "../constants/mailer.js";
+import { EMAIL_TYPE, sendTemplateEmailAsync } from "../services/email/email.service.js";
 
 // 🔹 Joi validation schemas
 const createUserSchema = Joi.object({
@@ -30,58 +31,253 @@ export const updateUserSchema = Joi.object({
       return `RM${numbers}R`;
     };
 // 🔹 Create User with role validation
+// export const createUser = async (req, res) => {
+//   try {
+//     // 1️⃣ Validate request body
+//     const { error, value } = createUserSchema.validate(req.body);
+//     if (error) return res.status(400).json({ success: false, message: error.details[0].message });
+
+//     const { fullName, mobile, email, roles: roleIds } = value;
+
+//     // 2️⃣ Check duplicate mobile/email
+//     const duplicate = await User.findOne({ $or: [{ mobile }, { email }] });
+//     if (duplicate) return res.status(400).json({ success: false, message: "Mobile or Email already exists" });
+
+//     // 3️⃣ Validate each role ID exists in Role collection
+//     const roles = await RoleModel.find({ _id: { $in: roleIds }, isActive: true });
+
+//     if (!roles || roles.length === 0) {
+//       return res.status(400).json({ success: false, message: "At least one valid role is required" });
+//     }
+
+//     if (roles.length !== roleIds.length) {
+//       return res.status(400).json({ success: false, message: "Some role IDs are invalid" });
+//     }
+
+//     // 4️⃣ Generate random password
+//     const plainPassword = generatePassword();
+
+//     // 5️⃣ Hash password
+//     const passwordHash = await bcrypt.hash(plainPassword, 10);
+
+//     // 6️⃣ Create user
+//     const user = await User.create({
+//       fullName,
+//       mobile,
+//       email,
+//       roles: roles.map(r => r._id), // only valid role IDs
+//       passwordHash,
+//     });
+
+//     // 7️⃣ Send email asynchronously
+//     setImmediate(() => {
+//       sendEmail(
+//         email,
+//         "Your Account Created",
+//         `Hello ${fullName},\n\nYour account has been created successfully.\n\nEmail: ${email}\nPassword: ${plainPassword}\n\nPlease change your password after first login.`
+//       );
+//     });
+
+//     res.status(201).json({ success: true, user });
+
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
 export const createUser = async (req, res) => {
   try {
+
     // 1️⃣ Validate request body
     const { error, value } = createUserSchema.validate(req.body);
-    if (error) return res.status(400).json({ success: false, message: error.details[0].message });
 
-    const { fullName, mobile, email, roles: roleIds } = value;
-
-    // 2️⃣ Check duplicate mobile/email
-    const duplicate = await User.findOne({ $or: [{ mobile }, { email }] });
-    if (duplicate) return res.status(400).json({ success: false, message: "Mobile or Email already exists" });
-
-    // 3️⃣ Validate each role ID exists in Role collection
-    const roles = await RoleModel.find({ _id: { $in: roleIds }, isActive: true });
-
-    if (!roles || roles.length === 0) {
-      return res.status(400).json({ success: false, message: "At least one valid role is required" });
+    if (error) {
+      return res.status(400).json({
+        success:false,
+        message:error.details[0].message
+      });
     }
 
-    if (roles.length !== roleIds.length) {
-      return res.status(400).json({ success: false, message: "Some role IDs are invalid" });
-    }
 
-    // 4️⃣ Generate random password
-    const plainPassword = generatePassword();
-
-    // 5️⃣ Hash password
-    const passwordHash = await bcrypt.hash(plainPassword, 10);
-
-    // 6️⃣ Create user
-    const user = await User.create({
+    const {
       fullName,
       mobile,
       email,
-      roles: roles.map(r => r._id), // only valid role IDs
+      roles: roleIds
+    } = value;
+
+
+
+    // 2️⃣ Check duplicate mobile/email
+
+    const duplicate = await User.findOne({
+      $or:[
+        {mobile},
+        {email}
+      ]
+    });
+
+
+    if(duplicate){
+
+      return res.status(400).json({
+        success:false,
+        message:"Mobile or Email already exists"
+      });
+
+    }
+
+
+
+
+    // 3️⃣ Validate roles
+
+    const roles = await RoleModel.find({
+      _id:{
+        $in:roleIds
+      },
+      isActive:true
+    });
+
+
+
+    if(!roles || roles.length === 0){
+
+      return res.status(400).json({
+        success:false,
+        message:"At least one valid role is required"
+      });
+
+    }
+
+
+
+    if(roles.length !== roleIds.length){
+
+      return res.status(400).json({
+        success:false,
+        message:"Some role IDs are invalid"
+      });
+
+    }
+
+
+
+
+
+    // 4️⃣ Generate password
+
+    const plainPassword = generatePassword();
+
+
+
+
+    // 5️⃣ Hash password
+
+    const passwordHash =
+    await bcrypt.hash(
+      plainPassword,
+      10
+    );
+
+
+
+
+
+    // 6️⃣ Create User
+
+    const user = await User.create({
+
+      fullName,
+
+      mobile,
+
+      email,
+
+      roles:
+      roles.map(r=>r._id),
+
       passwordHash,
+
     });
 
-    // 7️⃣ Send email asynchronously
-    setImmediate(() => {
-      sendEmail(
+
+
+
+
+
+    // =====================================
+    // 📧 SEND ACCOUNT CREATED EMAIL
+    // =====================================
+
+    if(email){
+
+      sendTemplateEmailAsync({
+
+        type:
+        EMAIL_TYPE.ACCOUNT_CREATED,
+
+
+        to:
         email,
-        "Your Account Created",
-        `Hello ${fullName},\n\nYour account has been created successfully.\n\nEmail: ${email}\nPassword: ${plainPassword}\n\nPlease change your password after first login.`
-      );
+
+
+        data:{
+
+          customerName:
+          fullName,
+
+
+          email,
+
+
+          password:
+          plainPassword,
+
+
+          loginUrl:
+          `${process.env.FRONTEND_URL}/login`
+
+        }
+
+      });
+
+    }
+
+
+
+
+
+    return res.status(201).json({
+
+      success:true,
+
+      message:"User created successfully",
+
+      user
+
     });
 
-    res.status(201).json({ success: true, user });
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: err.message });
+
+  } catch(err){
+
+
+    console.error(
+      "Create User Error:",
+      err
+    );
+
+
+    return res.status(500).json({
+
+      success:false,
+
+      message:err.message
+
+    });
+
   }
 };
 
