@@ -34,6 +34,7 @@ import languagePreferenceAdminRoutes from "./admin/languagePreference.routes.js"
 import AppVersionRoutes from "./appVersion.routes.js";
 import Maintenance from "./maintenance.routes.js";
 import trafficRoutes from "../routes/trafficRoutes.js";
+import messageProviderRoutes from "../routes/admin/messageProvider.routes.js";
 
 
 
@@ -69,6 +70,7 @@ router.use("/admin/enquiries", enquiryRoutes);
 
 // Now all /admin/... routes automatically have req.user + req.allowedStores
 router.use("/admin/users", adminUserRoutes);
+router.use("/admin/message-provider", messageProviderRoutes);
 router.use("/admin/payment-gateways", paymentGatewayRoutes);
 router.use("/admin/single", singleRoutes);
 router.use("/admin/analytics", AnalyticsRoutes);
