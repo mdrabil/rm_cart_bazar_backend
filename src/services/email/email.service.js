@@ -1,4 +1,4 @@
-import { sendEmail } from "../../constants/mailer.js";
+import { sendEmail, sendEmailAsync, verifyEmailTransport } from "../../constants/mailer.js";
 import { config } from "../../config/config.js";
 import { EMAIL_TYPE } from "./types.js";
 import emailTemplates from "./templates/index.js";
@@ -23,18 +23,7 @@ export const renderEmailTemplate = (type, data = {}) => {
 };
 
 /**
- * Send a branded template email via Nodemailer.
- *
- * @param {object} options
- * @param {string} options.type - EMAIL_TYPE value
- * @param {string|string[]} options.to - Recipient email(s)
- * @param {object} [options.data] - Template data
- * @param {string} [options.subject] - Optional subject override
- * @param {string} [options.from] - Optional from override
- * @param {string[]} [options.cc]
- * @param {string[]} [options.bcc]
- * @param {object[]} [options.attachments] - Nodemailer attachments
- * @returns {Promise<boolean>}
+ * Send a branded template email via Nodemailer (awaits with hard SMTP timeout).
  */
 export const sendTemplateEmail = async ({
   type,
@@ -49,7 +38,7 @@ export const sendTemplateEmail = async ({
   const payload = renderEmailTemplate(type, data);
 
   return sendEmail({
-    from: from || config.emailUser,
+    from: from || `"MR Crafted" <${config.emailUser}>`,
     to,
     cc,
     bcc,
@@ -61,17 +50,26 @@ export const sendTemplateEmail = async ({
 };
 
 /**
- * Fire-and-forget template email (non-blocking).
+ * Fire-and-forget template email (non-blocking — use for non-critical mail).
+ * OTP flows should prefer await sendTemplateEmail so failures are visible.
  */
 export const sendTemplateEmailAsync = (options) => {
   setImmediate(() => {
     sendTemplateEmail(options).catch((err) => {
       console.error(
         `[Email] Failed to send ${options.type} to ${options.to}:`,
+        err.code || "",
         err.message
       );
     });
   });
 };
 
-export { EMAIL_TYPE, emailTemplates, renderEmailTemplate as default };
+export {
+  EMAIL_TYPE,
+  emailTemplates,
+  sendEmail,
+  sendEmailAsync,
+  verifyEmailTransport,
+  renderEmailTemplate as default,
+};

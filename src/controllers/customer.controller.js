@@ -139,7 +139,6 @@ export const sendEmailOtp = async (req, res) => {
       });
     }
 
-
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -150,127 +149,82 @@ export const sendEmailOtp = async (req, res) => {
       });
     }
 
-
     // Check customer already exists
     const existingCustomer = await Customer.findOne({
       email,
     });
 
-
     if (existingCustomer) {
       return res.status(400).json({
-        success:false,
-        message:"Email already registered",
+        success: false,
+        message: "Email already registered",
       });
     }
-
-
 
     // Check already verified
-    const existingVerification =
-      await MailVarificationModel.findOne({
-        email,
-      });
+    const existingVerification = await MailVarificationModel.findOne({
+      email,
+    });
 
-
-    if(existingVerification?.verified){
-
+    if (existingVerification?.verified) {
       return res.status(200).json({
-        success:true,
-        verified:true,
-        message:"Email already verified",
+        success: true,
+        verified: true,
+        message: "Email already verified",
       });
-
     }
 
-
-
     // Generate OTP
-    const otp = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
-
-
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Remove old OTP
     await MailVarificationModel.findOneAndDelete({
       email,
     });
 
-
-
-    // Save OTP
+    // Save OTP first so a later email failure still allows retry
     await MailVarificationModel.create({
-
       email,
-
       otp,
-
-      verified:false,
-
-      expiresAt:new Date(
-        Date.now() + 5 * 60 * 1000
-      ),
-
+      verified: false,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     });
 
-
-
-    // =====================================
-    // SEND MR CRAFTED BRANDED EMAIL
-    // =====================================
-
+    // Send branded OTP email (hard SMTP timeout inside mailer — never hangs forever)
     await sendTemplateEmail({
-
       type: EMAIL_TYPE.EMAIL_VERIFICATION_OTP,
-
-
       to: email,
-
-
       data: {
-
-        customerName:"Customer",
-
+        customerName: "Customer",
         otp,
-
-        otpExpiryMinutes:5,
-
-
-      }
-
+        otpExpiryMinutes: 5,
+      },
     });
-
-
 
     return res.status(200).json({
-
-      success:true,
-
-      message:"OTP sent successfully",
-
+      success: true,
+      message: "OTP sent successfully",
     });
+  } catch (error) {
+    console.error("Send OTP Error:", error.code || "", error.message);
 
+    const status =
+      error.code === "EMAIL_TIMEOUT" ||
+      error.code === "ESOCKET" ||
+      error.code === "ECONNECTION" ||
+      error.code === "ETIMEDOUT"
+        ? 503
+        : error.code === "EMAIL_AUTH" || error.code === "EMAIL_NOT_CONFIGURED"
+          ? 503
+          : 500;
 
-
-  } catch(error){
-
-
-    console.error(
-      "Send OTP Error:",
-      error
-    );
-
-
-    return res.status(500).json({
-
-      success:false,
-
-      message:error.message,
-
+    return res.status(status).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to send OTP email. Please try again in a moment.",
+      code: error.code || "EMAIL_SEND_FAILED",
     });
-
-
   }
 };
 

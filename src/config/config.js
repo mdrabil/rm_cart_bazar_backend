@@ -55,7 +55,13 @@ export const config = {
   corsOrigins: parseCorsOrigins(),
 
   emailUser: process.env.EMAIL_USER,
-  emailPass: process.env.EMAIL_PASS,
+  // Gmail App Passwords are often copied with spaces — strip them
+  emailPass: (process.env.EMAIL_PASS || "").replace(/\s+/g, "").trim(),
+  smtpHost: process.env.SMTP_HOST || "smtp.gmail.com",
+  smtpPort: Number(process.env.SMTP_PORT) || 587,
+  smtpSecure: process.env.SMTP_SECURE === "true",
+  smtpTlsRejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== "false",
+  emailSendTimeoutMs: Number(process.env.EMAIL_SEND_TIMEOUT_MS) || 15000,
   adminPanelUrl: (process.env.ADMIN_PANEL_URL || "http://localhost:5173").replace(/\/$/, ""),
   websiteUrl: (process.env.WEBSITE_URL || process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, ""),
   apiPublicUrl: (process.env.API_PUBLIC_URL || "http://localhost:4001").replace(/\/$/, ""),

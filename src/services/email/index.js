@@ -13,6 +13,9 @@ export {
   renderEmailTemplate,
   sendTemplateEmail,
   sendTemplateEmailAsync,
+  verifyEmailTransport,
+  sendEmail,
+  sendEmailAsync,
 } from "./email.service.js";
 
 // Layout & components (for custom templates)

@@ -1,23 +1,18 @@
-import { sendEmail } from "../../constants/mailer.js";
+import { EMAIL_TYPE, sendTemplateEmail } from "../../services/email/email.service.js";
 import Customer from "../../models/Customer.js";
 import CustomerOtpModel from "../../models/CustomerOtp.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { config } from "../../config/config.js";
 
-
 export const sendOtp = async (req, res) => {
-
-
   try {
     const { email } = req.body;
-
-    
 
     const user = await Customer.findOne({ email });
     if (!user) return res.status(400).json({ message: "User not found" });
 
-    // 🔥 unblock after 24h
+    // unblock after 24h
     const record = await CustomerOtpModel.findOne({ email });
 
     if (record?.blockedUntil && record.blockedUntil < new Date()) {
@@ -31,57 +26,63 @@ export const sendOtp = async (req, res) => {
 
     await CustomerOtpModel.findOneAndDelete({ email });
 
-  const savedOtp = await CustomerOtpModel.create({
-  email,
-  otp,
-  expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-});
+    await CustomerOtpModel.create({
+      email,
+      otp,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
 
+    await sendTemplateEmail({
+      type: EMAIL_TYPE.EMAIL_VERIFICATION_OTP,
+      to: email,
+      data: {
+        customerName: user.fullName || "Customer",
+        otp,
+        otpExpiryMinutes: 5,
+      },
+    });
 
-await sendEmail(
-  email,
-  "OTP Verification",
-  `Your OTP is ${otp}. It is valid for 5 minutes. Do not share it.`
-);
-
-console.log("OTP SAVED =>", savedOtp);
-
-    res.status(200).json({ success: true, message: "OTP sent Successfully" });
+    return res
+      .status(200)
+      .json({ success: true, message: "OTP sent Successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("App OTP send error:", err.code || "", err.message);
+    return res.status(err.code === "EMAIL_TIMEOUT" ? 503 : 500).json({
+      success: false,
+      message: err.message || "Failed to send OTP",
+      code: err.code || "EMAIL_SEND_FAILED",
+    });
   }
 };
+
 // ================= VERIFY OTP =================
 export const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    
     const record = await CustomerOtpModel.findOne({ email });
-    
-    console.log("get the data",req.body)
-    console.log("get the data in db",record)
+
     if (!record)
       return res.status(400).json({ message: "OTP expired or invalid" });
 
-    // ❌ expired check
+    // expired check
     if (record.expiresAt < new Date()) {
       await CustomerOtpModel.deleteOne({ email });
       return res.status(400).json({ message: "OTP expired" });
     }
 
-    // ❌ blocked check
+    // blocked check
     if (record.isBlocked) {
       return res.status(403).json({
         message: "Blocked for 24 hours due to multiple attempts",
       });
     }
 
-    // ❌ wrong otp
+    // wrong otp
     if (record.otp !== otp) {
       record.attempts += 1;
 
-      // 🔥 block after 10 attempts (24 hours)
+      // block after 10 attempts (24 hours)
       if (record.attempts >= 10) {
         record.isBlocked = true;
         record.blockedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -95,7 +96,7 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // ✅ success
+    // success
     await CustomerOtpModel.deleteOne({ email });
 
     const resetToken = jwt.sign(
