@@ -9,69 +9,59 @@ import jwt from "jsonwebtoken";
 import { config } from "../../config/config.js";
 
 /**
- * GET /api/auth/verification-methods
- * Public — returns which signup verification methods are available
- * based on ACTIVE MessageProvider configs. No provider names exposed.
+ * Resolve which OTP identifier types are available from ACTIVE MessageProviders.
+ * No provider names / credentials exposed.
  */
-export const getVerificationMethods = async (_req, res) => {
-  try {
-    const providers = await MessageProvider.find({
-      status: MESSAGE_PROVIDER_STATUS.ACTIVE,
-    })
-      .select("supportedChannels priority isDefault")
-      .sort({ priority: 1 })
-      .lean();
+async function resolveActiveOtpChannels() {
+  const providers = await MessageProvider.find({
+    status: MESSAGE_PROVIDER_STATUS.ACTIVE,
+  })
+    .select("supportedChannels")
+    .lean();
 
-    const channels = new Set();
-    for (const provider of providers) {
-      for (const channel of provider.supportedChannels || []) {
-        channels.add(String(channel).toLowerCase());
-      }
+  const channels = new Set();
+  for (const provider of providers) {
+    for (const channel of provider.supportedChannels || []) {
+      channels.add(String(channel).toLowerCase());
     }
-
-    const emailEnabled = channels.has("email");
-    const phoneEnabled = channels.has("sms") || channels.has("whatsapp");
-
-    const methods = [];
-    if (emailEnabled) {
-      methods.push({
-        type: "email",
-        label: "Email",
-      });
-    }
-    if (phoneEnabled) {
-      methods.push({
-        type: "mobile",
-        label: "Phone",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      methods,
-      emailEnabled,
-      phoneEnabled,
-      verificationRequired: methods.length > 0,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to load verification methods",
-      methods: [],
-      emailEnabled: false,
-      phoneEnabled: false,
-      verificationRequired: false,
-    });
   }
-};
+
+  const emailEnabled = channels.has("email");
+  const phoneEnabled = channels.has("sms") || channels.has("whatsapp");
+
+  return {
+    emailEnabled,
+    phoneEnabled,
+    verificationRequired: emailEnabled || phoneEnabled,
+  };
+}
 
 /**
- * POST /api/auth/send-otp
- * Body: { identifier: "user@gmail.com" | "9876543210", purpose? }
+ * POST /api/auth/send-otp — send OTP
+ * GET  /api/auth/send-otp — active channels from MessageProvider (signup UI)
  *
  * Frontend must NOT send provider, channel, or identifierType.
  */
 export const sendAuthOtp = async (req, res) => {
+  // Existing auth OTP route — GET returns active channels for dynamic signup buttons
+  if (req.method === "GET") {
+    try {
+      const active = await resolveActiveOtpChannels();
+      return res.status(200).json({
+        success: true,
+        ...active,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Failed to load OTP channels",
+        emailEnabled: false,
+        phoneEnabled: false,
+        verificationRequired: false,
+      });
+    }
+  }
+
   try {
     const {
       identifier,
@@ -93,6 +83,21 @@ export const sendAuthOtp = async (req, res) => {
     }
 
     const identity = Messaging.detectIdentifier(raw);
+
+    // Enforce admin-configured active channels
+    const active = await resolveActiveOtpChannels();
+    if (identity.identifierType === "email" && !active.emailEnabled) {
+      return res.status(400).json({
+        success: false,
+        message: "Email verification is not available",
+      });
+    }
+    if (identity.identifierType === "mobile" && !active.phoneEnabled) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone verification is not available",
+      });
+    }
 
     if (purpose === "signup") {
       if (identity.identifierType === "email") {
