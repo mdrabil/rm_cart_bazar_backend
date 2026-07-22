@@ -2,8 +2,68 @@ import Messaging from "../../messaging/index.js";
 import Customer from "../../models/Customer.js";
 import MailVarificationModel from "../../models/MailVarification.model.js";
 import OtpVerification from "../../models/OtpVerification.model.js";
+import MessageProvider, {
+  MESSAGE_PROVIDER_STATUS,
+} from "../../models/MessageProvider.model.js";
 import jwt from "jsonwebtoken";
 import { config } from "../../config/config.js";
+
+/**
+ * GET /api/auth/verification-methods
+ * Public — returns which signup verification methods are available
+ * based on ACTIVE MessageProvider configs. No provider names exposed.
+ */
+export const getVerificationMethods = async (_req, res) => {
+  try {
+    const providers = await MessageProvider.find({
+      status: MESSAGE_PROVIDER_STATUS.ACTIVE,
+    })
+      .select("supportedChannels priority isDefault")
+      .sort({ priority: 1 })
+      .lean();
+
+    const channels = new Set();
+    for (const provider of providers) {
+      for (const channel of provider.supportedChannels || []) {
+        channels.add(String(channel).toLowerCase());
+      }
+    }
+
+    const emailEnabled = channels.has("email");
+    const phoneEnabled = channels.has("sms") || channels.has("whatsapp");
+
+    const methods = [];
+    if (emailEnabled) {
+      methods.push({
+        type: "email",
+        label: "Email",
+      });
+    }
+    if (phoneEnabled) {
+      methods.push({
+        type: "mobile",
+        label: "Phone",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      methods,
+      emailEnabled,
+      phoneEnabled,
+      verificationRequired: methods.length > 0,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load verification methods",
+      methods: [],
+      emailEnabled: false,
+      phoneEnabled: false,
+      verificationRequired: false,
+    });
+  }
+};
 
 /**
  * POST /api/auth/send-otp

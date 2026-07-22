@@ -20,6 +20,7 @@ import { bootstrapOrAdmin } from "../middlewares/adminOnly.js";
 import {
   sendAuthOtp,
   verifyAuthOtp,
+  getVerificationMethods,
 } from "../controllers/messaging/otp.controller.js";
 
 const router = express.Router();
@@ -35,6 +36,7 @@ router.post("/verify-reset-token", verifyPasswordResetToken);
 router.post("/reset-password", resetPasswordLimiter, resetPassword);
 
 // Unified customer OTP (email / phone) — identifier + sessionId contract
+router.get("/verification-methods", getVerificationMethods);
 router.post("/send-otp", sendAuthOtp);
 router.post("/verify-otp", verifyAuthOtp);
 
