@@ -117,21 +117,24 @@ export const getTestimonials = async (req, res) => {
 export const getApprovedTestimonials = async (req, res) => {
   try {
     const testimonials = await Testimonial.find({ isApproved: true })
-      .populate("user", "fullName") // optional: populate user info if needed
-      .sort({ createdAt: -1 }); // latest first
-
-      // console.log("get testi",testimonials)
+      .populate("user", "fullName")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
       count: testimonials.length,
-      data: testimonials,
+      message: "Active Testimonials",
+      data: testimonials || [],
     });
+
   } catch (error) {
     console.error("Error fetching approved testimonials:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server Error: Unable to fetch testimonials",
+
+    return res.status(200).json({
+      success: true,
+      message: "Server Error",
+      count: 0,
+      data: [],
     });
   }
 };
