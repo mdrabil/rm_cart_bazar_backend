@@ -27,7 +27,13 @@ export const getAdminLanguagePreferences = async (req, res) => {
           as: "customer",
         },
       },
-      { $unwind: { path: "$customer", preserveNullAndEmptyDocuments: true } },
+      {
+        $unwind: {
+          path: "$customer",
+          preserveNullAndEmptyArrays: true,
+        },
+      }
+      ,
     ];
 
     if (search?.trim()) {
@@ -133,6 +139,67 @@ export const toggleLanguagePreferenceStatus = async (req, res) => {
     });
   } catch (err) {
     console.error("Toggle language preference status error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const deleteLanguagePreference = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Preference ID is required",
+      });
+    }
+
+    const deleted = await LanguagePreference.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Language preference not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Language preference deleted",
+    });
+  } catch (err) {
+    console.error("Delete language preference error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const bulkDeleteLanguagePreferences = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+
+    if (!ids.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No preference IDs provided",
+      });
+    }
+
+    const result = await LanguagePreference.deleteMany({
+      _id: { $in: ids },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `${result.deletedCount} language preference(s) deleted`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (err) {
+    console.error("Bulk delete language preferences error:", err);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",

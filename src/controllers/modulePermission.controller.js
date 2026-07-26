@@ -1,17 +1,81 @@
 import ModuleModel from "../models/Module.model.js";
 import ModulePermissionModel from "../models/ModulePermission.model.js";
 import ModulePermission from "../models/ModulePermission.model.js";
+import UserPermission from "../models/UserPermission.model.js";
 import Role from "../models/Role.model.js";
 import mongoose from "mongoose";
 
 
 export const getMyPermissions = async (req, res) => {
   try {
-    const userRoles = req.user.roleIds; // Logged-in user roles
-    // console.log("get the role",req.user)
-    const permissions = await ModulePermission.find({ role: { $in: userRoles } })
-      .populate("role", "role mrRoleId")
-      .lean();
+    const userRoles = req.user.roleIds;
+    const userId = req.user._id;
+
+    const [rolePermissions, userOverrides] = await Promise.all([
+      ModulePermission.find({ role: { $in: userRoles } })
+        .populate("role", "role mrRoleId")
+        .lean(),
+      UserPermission.find({ userId }).lean(),
+    ]);
+
+    // Merge role + user override grants (OR). Frontend useCan reads this list.
+    const byModule = new Map();
+
+    for (const row of rolePermissions) {
+      const existing = byModule.get(row.moduleKey);
+      const nextPerms = {
+        create: Boolean(row.permissions?.create),
+        read: Boolean(row.permissions?.read),
+        update: Boolean(row.permissions?.update),
+        delete: Boolean(row.permissions?.delete),
+      };
+
+      if (!existing) {
+        byModule.set(row.moduleKey, {
+          moduleKey: row.moduleKey,
+          permissions: nextPerms,
+          role: row.role,
+          sources: ["role"],
+        });
+      } else {
+        for (const action of ["create", "read", "update", "delete"]) {
+          existing.permissions[action] =
+            existing.permissions[action] || nextPerms[action];
+        }
+        if (row.role?.role === "SUPER_ADMIN") {
+          existing.role = row.role;
+        }
+      }
+    }
+
+    for (const row of userOverrides) {
+      const existing = byModule.get(row.moduleKey);
+      const nextPerms = {
+        create: Boolean(row.permissions?.create),
+        read: Boolean(row.permissions?.read),
+        update: Boolean(row.permissions?.update),
+        delete: Boolean(row.permissions?.delete),
+      };
+
+      if (!existing) {
+        byModule.set(row.moduleKey, {
+          moduleKey: row.moduleKey,
+          permissions: nextPerms,
+          role: null,
+          sources: ["user"],
+        });
+      } else {
+        for (const action of ["create", "read", "update", "delete"]) {
+          existing.permissions[action] =
+            existing.permissions[action] || nextPerms[action];
+        }
+        if (!existing.sources.includes("user")) {
+          existing.sources.push("user");
+        }
+      }
+    }
+
+    const permissions = Array.from(byModule.values());
 
     res.json({ success: true, permissions });
   } catch (err) {

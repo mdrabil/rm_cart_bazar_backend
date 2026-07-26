@@ -29,14 +29,12 @@ export const checkPermission = (moduleKey, action) => {
       if (userPerm) return next();
 
       /* 2️⃣ ROLE BASED PERMISSION */
-       console.log("get the rolePrem",moduleKey)
+      console.log("get the rolePrem",moduleKey)
       const rolePerm = await ModulePermission.findOne({
         role: { $in: user.roleIds },
         moduleKey,
         [`permissions.${action}`]: true
       }).lean();
-
-      console.log("get the rolePrem",rolePerm)
 
       if (!rolePerm) {
         return res.status(403).json({
