@@ -16,8 +16,10 @@ import { MODULE_KEY } from "../../constants/enums.js";
 import { arrayImagesThumbnailsUpload, upload } from "../../middlewares/upload.middleware.js";
 import { createNewProduct, updateProduct } from "../../controllers/new-product.controller.js";
 import { deleteNotifyRequest, getAllNotifyRequests, updateNotifyStatus } from "../../controllers/admin/product.notify.controller.js";
+import { withRealtimeEmit } from "../../middlewares/realtimeEmit.middleware.js";
 
 const router = express.Router();
+router.use(withRealtimeEmit("product"));
 
 // // 🔹 Create product with images
 // router.post(

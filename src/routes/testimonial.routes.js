@@ -11,8 +11,10 @@ import {
 } from "../controllers/testimonial.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { singleImageUpload } from "../middlewares/upload.middleware.js";
+import { withRealtimeEmit } from "../middlewares/realtimeEmit.middleware.js";
 
 const router = express.Router();
+router.use(withRealtimeEmit("testimonial"));
 
 router.get("/", getTestimonials);
 router.get("/approved-list", getApprovedTestimonials);

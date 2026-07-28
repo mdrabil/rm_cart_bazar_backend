@@ -10,9 +10,11 @@ import {
 } from "../controllers/faq.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { adminOnly } from "../middlewares/adminOnly.js";
+import { withRealtimeEmit } from "../middlewares/realtimeEmit.middleware.js";
 
 
 const router = express.Router();
+router.use(withRealtimeEmit("faq"));
 
 router.get("/get-all", getFaqPage);
 router.get("/get-all/admin-only",authMiddleware,adminOnly, getFaqPage);

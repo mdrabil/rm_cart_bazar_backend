@@ -10,8 +10,10 @@ import {
 } from "../controllers/homePage.controller.js";
 import { upload } from "../middlewares/upload.middleware.js";
 import { createHome } from "../controllers/home.contoller.js";
+import { withRealtimeEmit } from "../middlewares/realtimeEmit.middleware.js";
 
 const router = express.Router();
+router.use(withRealtimeEmit("homepage"));
 
 // Multer memory storage for direct Cloudinary upload
 

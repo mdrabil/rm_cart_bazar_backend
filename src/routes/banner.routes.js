@@ -12,8 +12,10 @@ import { singleImageUpload } from "../middlewares/upload.middleware.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { checkPermission } from "../middlewares/checkPermission.middleware.js";
 import { MODULE_KEY } from "../constants/enums.js";
+import { withRealtimeEmit } from "../middlewares/realtimeEmit.middleware.js";
 
 const router = express.Router();
+router.use(withRealtimeEmit("banner"));
 
 router.post(
   "/",

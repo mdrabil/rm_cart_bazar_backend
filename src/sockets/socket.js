@@ -44,16 +44,22 @@ export const initSocket = (httpServer) => {
     },
   });
 
+  // Auth is optional: public storefront clients connect without a token.
+  // Admin clients still authenticate via handshake.auth.token.
   io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
       if (!token) {
-        return next(new Error("Unauthorized"));
+        socket.isPublic = true;
+        socket.adminUser = null;
+        return next();
       }
+
       const adminUser = await resolveAdminUser(token);
       if (!adminUser) {
         return next(new Error("Unauthorized"));
       }
+      socket.isPublic = false;
       socket.adminUser = adminUser;
       return next();
     } catch {
@@ -62,11 +68,24 @@ export const initSocket = (httpServer) => {
   });
 
   io.on("connection", (socket) => {
-    console.log("🔌 Socket connected:", socket.id);
+    // Public / storefront room — always available
+    socket.join("storefront");
+
+    if (socket.isPublic) {
+      socket.on("join:storefront", () => {
+        socket.join("storefront");
+      });
+      return;
+    }
+
+    console.log("🔌 Admin socket connected:", socket.id);
 
     socket.on("join:admin", () => {
       const roles = socket.adminUser?.roles || [];
-      if (roles.includes(USER_ROLE.SUPER_ADMIN) || roles.includes(USER_ROLE.ADMIN)) {
+      if (
+        roles.includes(USER_ROLE.SUPER_ADMIN) ||
+        roles.includes(USER_ROLE.ADMIN)
+      ) {
         socket.join("admin");
       }
     });
@@ -83,8 +102,12 @@ export const initSocket = (httpServer) => {
       }
     });
 
+    socket.on("join:storefront", () => {
+      socket.join("storefront");
+    });
+
     socket.on("disconnect", () => {
-      console.log("❌ Socket disconnected:", socket.id);
+      console.log("❌ Admin socket disconnected:", socket.id);
     });
   });
 

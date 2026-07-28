@@ -11,8 +11,10 @@ import {
 } from "../controllers/blog.controller.js";
 import multer from "multer";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
+import { withRealtimeEmit } from "../middlewares/realtimeEmit.middleware.js";
 
 const router = express.Router();
+router.use(withRealtimeEmit("blog"));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({});
