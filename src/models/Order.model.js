@@ -275,6 +275,13 @@ const orderSchema = new mongoose.Schema(
       deliveredAt: Date,
 
       cancelledAt: Date,
+  },
+
+    shipmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Shipment",
+      default: null,
+      index: true,
     },
   },
   {

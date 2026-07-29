@@ -5,6 +5,7 @@ import CouponUsageModel from "../../models/CouponUsage.model.js";
 import ProductModel from "../../models/Product.model.js";
 import ReviewModel from "../../models/Review.model.js";
 import ProductNotify from "../../models/ProductNotify.model.js";
+import { buildProductCategoryMatchFilter } from "../../utils/categoryScope.js";
 
 
 
@@ -471,22 +472,30 @@ export const getAllProducts2 = async (req, res) => {
     const limitNumber = Number(limit);
 
     let filter = {};
+    const andFilters = [];
 
     // ================= FILTERS =================
     if (store) filter.store = new mongoose.Types.ObjectId(store);
     if (status) filter.status = status;
     if (name) filter.name = { $regex: name, $options: "i" };
 
-    console.log("category",category)
-
-    // ================= CATEGORY =================
+    // ================= CATEGORY (name or id, recursive descendants) =================
     if (category) {
-      const foundCategory = await CategoryModel.findOne({
-        name: { $regex: `^${category}$`, $options: "i" }
-      }).select("_id").lean();
+      let foundCategory = null;
 
-      if (foundCategory) filter.category = foundCategory._id;
-      else
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        foundCategory = await CategoryModel.findById(category).select("_id").lean();
+      }
+
+      if (!foundCategory) {
+        foundCategory = await CategoryModel.findOne({
+          name: { $regex: `^${category}$`, $options: "i" },
+        })
+          .select("_id")
+          .lean();
+      }
+
+      if (!foundCategory) {
         return res.status(200).json({
           success: true,
           message: "No products found",
@@ -494,16 +503,25 @@ export const getAllProducts2 = async (req, res) => {
           page: pageNumber,
           limit: limitNumber,
           products: [],
-          categorySummary: []
+          categorySummary: [],
         });
+      }
+
+      andFilters.push(await buildProductCategoryMatchFilter([foundCategory._id]));
     }
 
     // ================= SEARCH =================
     if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } }
-      ];
+      andFilters.push({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    if (andFilters.length) {
+      filter.$and = andFilters;
     }
 
     // ================= SORTING =================
@@ -616,24 +634,7 @@ const parseObjectIdList = (value) => {
   return String(value)
     .split(",")
     .map((id) => id.trim())
-    .filter((id) => mongoose.Types.ObjectId.isValid(id))
-    .map((id) => new mongoose.Types.ObjectId(id));
-};
-
-const buildCategoryScopeFilter = async (categoryId) => {
-  const catId = new mongoose.Types.ObjectId(categoryId);
-  const childCategories = await CategoryModel.find({ parentCategory: catId })
-    .select("_id")
-    .lean();
-  const childIds = childCategories.map((item) => item._id);
-
-  const scope = [{ category: catId }, { subCategory: catId }];
-
-  if (childIds.length > 0) {
-    scope.push({ subCategory: { $in: childIds } });
-  }
-
-  return { $or: scope };
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
 };
 
 export const getAllProducts = async (req, res) => {
@@ -658,15 +659,12 @@ export const getAllProducts = async (req, res) => {
 
     const subCategoryIds = parseObjectIdList(subCategory);
 
-    if (category && mongoose.Types.ObjectId.isValid(category)) {
-      if (subCategoryIds.length > 0) {
-        andFilters.push({ subCategory: { $in: subCategoryIds } });
-        andFilters.push(await buildCategoryScopeFilter(category));
-      } else {
-        andFilters.push(await buildCategoryScopeFilter(category));
-      }
-    } else if (subCategoryIds.length > 0) {
-      andFilters.push({ subCategory: { $in: subCategoryIds } });
+    // Prefer narrower subCategory selection when present (each expands recursively).
+    // Otherwise expand the selected category through all nested descendants.
+    if (subCategoryIds.length > 0) {
+      andFilters.push(await buildProductCategoryMatchFilter(subCategoryIds));
+    } else if (category && mongoose.Types.ObjectId.isValid(category)) {
+      andFilters.push(await buildProductCategoryMatchFilter([category]));
     }
 
     const minPriceNum =

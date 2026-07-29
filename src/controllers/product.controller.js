@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Product from "../models/Product.model.js";
 import Store from "../models/Store.model.js";
 import Joi from "joi";
@@ -5,6 +6,7 @@ import { USER_ROLE, PRODUCT_STATUS } from "../constants/enums.js";
 import cloudinary from "../config/cloudinaryConfig.js";
 import { generateProductSlug } from "../utils/mrId.js";
 import { buildStoreFilter } from "../utils/accessHelper.js";
+import { buildProductCategoryMatchFilter } from "../utils/categoryScope.js";
 
 // 🔹 Joi Validation Schemas
 const createProductSchema = Joi.object({
@@ -489,6 +491,7 @@ export const getAllProducts = async (req, res) => {
       limit = 20,
       store,
       category,
+      subCategory,
       status,
       name,
       search
@@ -499,20 +502,34 @@ export const getAllProducts = async (req, res) => {
 
     // 🔹 NORMAL FILTERS
     const filter = {};
+    const andFilters = [];
 
-    // console.log("req.query",req.query)
-    // console.log("req.body",req.body)
-
-    if (category) filter.category = category;
     if (status) filter.status = status;
     if (name) filter.name = { $regex: name, $options: "i" };
 
+    const subCategoryIds = String(subCategory || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+    if (subCategoryIds.length > 0) {
+      andFilters.push(await buildProductCategoryMatchFilter(subCategoryIds));
+    } else if (category && mongoose.Types.ObjectId.isValid(category)) {
+      andFilters.push(await buildProductCategoryMatchFilter([category]));
+    }
+
     // 🔍 SEARCH
     if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-      ];
+      andFilters.push({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    if (andFilters.length) {
+      filter.$and = andFilters;
     }
 
     // 🔥 ACCESS FILTER (MAIN PART)
@@ -521,11 +538,16 @@ export const getAllProducts = async (req, res) => {
       storeId: store // 👈 optional
     });
 
-    // ✅ FINAL FILTER
-    const finalFilter = {
-      ...filter,
-      ...accessFilter
-    };
+    // ✅ FINAL FILTER (merge so category $and and store $and don't overwrite)
+    const mergeParts = [filter, accessFilter].filter(
+      (part) => part && Object.keys(part).length > 0
+    );
+    const finalFilter =
+      mergeParts.length === 0
+        ? {}
+        : mergeParts.length === 1
+        ? mergeParts[0]
+        : { $and: mergeParts };
 
     // ✅ TOTAL COUNT
     const total = await Product.countDocuments(finalFilter);

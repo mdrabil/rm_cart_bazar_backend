@@ -8,24 +8,81 @@ import UserModel from "../models/User.model.js";
 // Joi validation schemas
 // Joi validation schema
 const createStoreSchema = Joi.object({
-  storeName: Joi.string().required(),
+  storeName: Joi.string().trim().required().messages({
+    "string.empty": "Store name is required",
+    "any.required": "Store name is required",
+  }),
   supportNumber: Joi.string()
-  .pattern(/^[0-9]{10}$/)
-  .allow("")
-  .optional(),
+    .pattern(/^[0-9]{10}$/)
+    .allow("")
+    .optional()
+    .messages({
+      "string.pattern.base": "Support number must be a valid 10-digit number",
+    }),
   fssaiNumber: Joi.string().allow("").optional(),
-   owner: Joi.string().optional(),
-  status: Joi.string().valid("ACTIVE","INACTIVE","SUSPENDED"),
+  owner: Joi.string().optional(),
+  status: Joi.string().valid("ACTIVE", "INACTIVE", "SUSPENDED"),
   address: Joi.object({
-    fullAddress: Joi.string().required(),
-    city: Joi.string().required(),
-    state: Joi.string().required(),
-    pincode: Joi.string().required(),
+    fullAddress: Joi.string().trim().min(5).required().messages({
+      "string.empty": "Full address is required",
+      "string.min": "Full address is too short",
+      "any.required": "Full address is required",
+    }),
+    city: Joi.string().trim().required().messages({
+      "string.empty": "City is required",
+      "any.required": "City is required",
+    }),
+    state: Joi.string().trim().required().messages({
+      "string.empty": "State is required",
+      "any.required": "State is required",
+    }),
+    pincode: Joi.string()
+      .trim()
+      .pattern(/^\d{5,6}$/)
+      .required()
+      .messages({
+        "string.empty": "Pincode is required",
+        "string.pattern.base": "Pincode must be 5 or 6 digits",
+        "any.required": "Pincode is required",
+      }),
     location: Joi.object({
       type: Joi.string().valid("Point").required(),
-      coordinates: Joi.array().items(Joi.number()).length(2).required(),
-    }).required(),
-  }).required(),
+      coordinates: Joi.array()
+        .ordered(
+          Joi.number().min(-180).max(180).required().messages({
+            "any.required": "Longitude is required",
+            "number.base": "Longitude must be a valid number",
+            "number.min": "Longitude must be between -180 and 180",
+            "number.max": "Longitude must be between -180 and 180",
+          }),
+          Joi.number().min(-90).max(90).required().messages({
+            "any.required": "Latitude is required",
+            "number.base": "Latitude must be a valid number",
+            "number.min": "Latitude must be between -90 and 90",
+            "number.max": "Latitude must be between -90 and 90",
+          })
+        )
+        .length(2)
+        .required()
+        .custom((coords, helpers) => {
+          const [lng, lat] = coords;
+          if (lng === 0 && lat === 0) {
+            return helpers.message(
+              "Latitude and longitude are required. Search or pick the store location on the map."
+            );
+          }
+          return coords;
+        }),
+    })
+      .required()
+      .messages({
+        "any.required": "Store location (latitude/longitude) is required",
+      }),
+  })
+    .required()
+    .messages({
+      "any.required": "Address is required",
+    }),
   gstDetails: Joi.object({
     gstNumber: Joi.string().allow(""),
     cgst: Joi.number().min(0),
@@ -36,42 +93,72 @@ const createStoreSchema = Joi.object({
     closeTime: Joi.string(),
   }),
   commissionConfig: Joi.string().allow(null),
-  isActive: Joi.boolean().optional(), // <--- changed
+  isActive: Joi.boolean().optional(),
 });
 
 
 const updateStoreSchema = Joi.object({
-  storeName: Joi.string(),
+  storeName: Joi.string().trim(),
   supportNumber: Joi.string()
-  .pattern(/^[0-9]{10}$/)
-  .allow("")
-  .optional(),
+    .pattern(/^[0-9]{10}$/)
+    .allow("")
+    .optional()
+    .messages({
+      "string.pattern.base": "Support number must be a valid 10-digit number",
+    }),
   fssaiNumber: Joi.string().allow("").optional(),
-   owner: Joi.string().optional(),
+  owner: Joi.string().optional(),
   address: Joi.object({
-    fullAddress: Joi.string(),
-    city: Joi.string(),
-    state: Joi.string(),
-    pincode: Joi.string(),
+    fullAddress: Joi.string().trim().min(5).messages({
+      "string.empty": "Full address is required",
+      "string.min": "Full address is too short",
+    }),
+    city: Joi.string().trim().messages({
+      "string.empty": "City is required",
+    }),
+    state: Joi.string().trim().messages({
+      "string.empty": "State is required",
+    }),
+    pincode: Joi.string()
+      .trim()
+      .pattern(/^\d{5,6}$/)
+      .messages({
+        "string.empty": "Pincode is required",
+        "string.pattern.base": "Pincode must be 5 or 6 digits",
+      }),
     location: Joi.object({
       type: Joi.string().valid("Point"),
-      coordinates: Joi.array().items(Joi.number()).length(2)
-    })
+      coordinates: Joi.array()
+        .ordered(
+          Joi.number().min(-180).max(180).required(),
+          Joi.number().min(-90).max(90).required()
+        )
+        .length(2)
+        .custom((coords, helpers) => {
+          const [lng, lat] = coords;
+          if (lng === 0 && lat === 0) {
+            return helpers.message(
+              "Latitude and longitude are required. Search or pick the store location on the map."
+            );
+          }
+          return coords;
+        }),
+    }),
   }),
   verificationStatus: Joi.string()
-  .valid("PENDING", "ON_HOLD", "APPROVED", "REJECTED")
-  .optional(),
+    .valid("PENDING", "ON_HOLD", "APPROVED", "REJECTED")
+    .optional(),
   gstDetails: Joi.object({
     gstNumber: Joi.string().allow(""),
     cgst: Joi.number().min(0),
-    sgst: Joi.number().min(0)
+    sgst: Joi.number().min(0),
   }),
   timing: Joi.object({
     openTime: Joi.string(),
-    closeTime: Joi.string()
+    closeTime: Joi.string(),
   }),
-  status: Joi.string().valid("ACTIVE","INACTIVE","SUSPENDED"),
-  isActive: Joi.boolean().optional()  
+  status: Joi.string().valid("ACTIVE", "INACTIVE", "SUSPENDED"),
+  isActive: Joi.boolean().optional(),
 }).min(1);
 
 // List stores
@@ -181,10 +268,15 @@ export const createStore = async (req, res) => {
   try {
 
     
-    const { error, value } = createStoreSchema.validate(req.body);
+    const { error, value } = createStoreSchema.validate(req.body, {
+      abortEarly: true,
+      errors: { wrap: { label: false } },
+    });
     if (error) {
       return res.status(400).json({
-        message: error.details[0].message
+        success: false,
+        message: error.details[0].message,
+        field: error.details[0].path.join("."),
       });
     }
 
@@ -265,8 +357,17 @@ export const updateStore = async (req, res) => {
     const { storeId } = req.params;
 
    console.log("req.body",req.body)
-    const { error, value } = updateStoreSchema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.details[0].message });
+    const { error, value } = updateStoreSchema.validate(req.body, {
+      abortEarly: true,
+      errors: { wrap: { label: false } },
+    });
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message,
+        field: error.details[0].path.join("."),
+      });
+    }
 
     const normalizedName = value.storeName.trim().toLowerCase();
 

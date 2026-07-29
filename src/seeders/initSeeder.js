@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { runInitialSeeder } from "./initialSeeder.js";
 import { seedPaymentGateways } from "./paymentGatewaySeeder.js";
+import { seedShippingGateways } from "./shippingGatewaySeeder.js";
+import { seedClothingCategories } from "./categorySeeder.js";
 
 dotenv.config();
 
@@ -13,6 +15,8 @@ const startSeeder = async () => {
 
     await runInitialSeeder();
     await seedPaymentGateways();
+    await seedShippingGateways();
+    await seedClothingCategories();
 
     console.log("🌱 Seeding Done");
     process.exit();

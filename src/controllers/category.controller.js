@@ -5,23 +5,63 @@ import { generateMRId } from "../utils/mrId.js";
 import cloudinary from "../config/cloudinaryConfig.js";
 import mongoose from "mongoose";
 
-// ------------------- Validation -------------------
 const createCategorySchema = Joi.object({
   name: Joi.string().required(),
-  parentCategory: Joi.string().allow("", null), // allow empty string or null
+  parentCategory: Joi.string().allow("", null),
   status: Joi.string().valid(...Object.values(CATEGORY_STATUS)).default(CATEGORY_STATUS.ACTIVE),
 });
 
+function normalizeParentId(value) {
+  if (!value || value === "null" || value === "undefined") return null;
+  if (!mongoose.Types.ObjectId.isValid(value)) return null;
+  return value;
+}
 
-const updateCategorySchema = Joi.object({
-  name: Joi.string(),
-  parentCategory: Joi.string().allow("", null),
-  status: Joi.string().valid(...Object.values(CATEGORY_STATUS)),
-}).min(0); // allow empty object
+/** Walk ancestors of parentId; true if categoryId appears (cycle) or self-parent. */
+async function wouldCreateCycle(categoryId, parentId) {
+  if (!parentId) return false;
+  if (categoryId && String(categoryId) === String(parentId)) return true;
 
-// ------------------- CRUD -------------------
+  let current = await Category.findById(parentId).select("parentCategory");
+  const visited = new Set();
 
-// 🔹 Create Category
+  while (current) {
+    const id = String(current._id);
+    if (categoryId && id === String(categoryId)) return true;
+    if (visited.has(id)) return true;
+    visited.add(id);
+    if (!current.parentCategory) break;
+    current = await Category.findById(current.parentCategory).select("parentCategory");
+  }
+  return false;
+}
+
+function buildTree(categories) {
+  const map = new Map();
+  categories.forEach((cat) => {
+    const obj = cat.toObject ? cat.toObject() : { ...cat };
+    map.set(String(obj._id), { ...obj, children: [] });
+  });
+
+  const roots = [];
+  map.forEach((node) => {
+    const parentId = node.parentCategory
+      ? String(node.parentCategory._id || node.parentCategory)
+      : null;
+    if (parentId && map.has(parentId)) {
+      map.get(parentId).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  const sortNodes = (nodes) => {
+    nodes.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    nodes.forEach((n) => sortNodes(n.children));
+  };
+  sortNodes(roots);
+  return roots;
+}
 
 export const createCategory = async (req, res) => {
   try {
@@ -30,193 +70,160 @@ export const createCategory = async (req, res) => {
       return res.status(400).json({ message: "User Not Found" });
     }
 
-    // ✅ Joi Validation
     const { error, value } = createCategorySchema.validate(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    /* ===========================
-       ✅ FIX PARENT CATEGORY
-    ============================ */
-    let parentCategory = null;
+    const parentCategory = normalizeParentId(value.parentCategory);
 
-    if (
-      value.parentCategory &&
-      value.parentCategory !== "null" &&
-      mongoose.Types.ObjectId.isValid(value.parentCategory)
-    ) {
-      parentCategory = value.parentCategory;
+    if (parentCategory) {
+      const parent = await Category.findById(parentCategory);
+      if (!parent) {
+        return res.status(400).json({ message: "Parent category not found" });
+      }
     }
 
-    /* ===========================
-       ✅ CHECK DUPLICATE
-    ============================ */
     const duplicate = await Category.findOne({
       name: value.name,
-      parentCategory: parentCategory
+      parentCategory,
     });
-
     if (duplicate) {
       return res.status(400).json({
-        message: "Category already exists under this parent"
+        message: "Category already exists under this parent",
       });
     }
 
-    /* ===========================
-       ✅ GENERATE CUSTOM ID
-    ============================ */
     const mrCategoryId = await generateMRId("CAT", "CATEGORY");
 
-    /* ===========================
-       ✅ HANDLE IMAGE
-    ============================ */
     let imageData = null;
-
     if (req.file) {
       imageData = {
         url: req.file.path,
-        public_id: req.file.filename
+        public_id: req.file.filename,
       };
     }
 
-    /* ===========================
-       ✅ CREATE CATEGORY
-    ============================ */
     const category = await Category.create({
       name: value.name,
       parentCategory,
       status: value.status,
       mrCategoryId,
       image: imageData,
-      createdBy: userId
+      createdBy: userId,
     });
 
     return res.status(201).json({
       success: true,
-      category
+      category,
     });
-
   } catch (err) {
     console.error("createCategory:", err);
     return res.status(500).json({
-      message: "Server error"
+      message: "Server error",
     });
   }
 };
-
-// 🔹 Update Category
-// export const updateCategory = async (req, res) => {
-//   try {
-//     const { categoryId } = req.params;
-
-//     // Validate text fields only
-//     const { error, value } = updateCategorySchema.validate(req.body);
-//     if (error) return res.status(400).json({ message: error.details[0].message });
-
-//     const category = await Category.findById(categoryId);
-//     if (!category) return res.status(404).json({ message: "Category not found" });
-
-//     // Only SUPER_ADMIN or creator can update
-//     if (!req.user.roles.includes(USER_ROLE.SUPER_ADMIN) && category.createdBy.toString() !== req.user._id.toString()) {
-//       return res.status(403).json({ message: "Access denied" });
-//     }
-
-//     // Handle image update
-//     if (req.file) {
-//       if (category.image && category.image.public_id) {
-//         await cloudinary.uploader.destroy(category.image.public_id);
-//       }
-//       category.image = { url: req.file.path, public_id: req.file.filename };
-//     }
-
-//     // Assign other fields if provided
-//     if (Object.keys(value).length > 0) {
-//       Object.assign(category, value);
-//     }
-
-//     await category.save();
-
-//     res.json({ success: true, category });
-//   } catch (err) {
-//     console.error("updateCategory:", err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
-
 
 export const updateCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
     const { name, parentCategory: incomingParent, status } = req.body;
 
-    /* ===========================
-       ✅ FIX PARENT CATEGORY
-    ============================ */
-    let parentCategory = null;
-
-    if (incomingParent && incomingParent !== "null" && mongoose.Types.ObjectId.isValid(incomingParent)) {
-      parentCategory = incomingParent;
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
     }
 
-    /* ===========================
-       ✅ CHECK DUPLICATE
-    ============================ */
+    const parentCategory = normalizeParentId(incomingParent);
+
+    if (parentCategory) {
+      const parent = await Category.findById(parentCategory);
+      if (!parent) {
+        return res.status(400).json({ message: "Parent category not found" });
+      }
+      if (await wouldCreateCycle(categoryId, parentCategory)) {
+        return res.status(400).json({
+          message: "Invalid parent — this would create a circular category relationship",
+        });
+      }
+    }
+
     const duplicate = await Category.findOne({
       _id: { $ne: categoryId },
-      name,
-      parentCategory
+      name: name || category.name,
+      parentCategory,
     });
-
     if (duplicate) {
       return res.status(400).json({ message: "Category already exists under this parent" });
     }
 
-    /* ===========================
-       ✅ HANDLE IMAGE
-    ============================ */
-    let updateData = { name, parentCategory, status };
+    const updateData = {
+      name: name ?? category.name,
+      parentCategory,
+      status: status ?? category.status,
+    };
 
     if (req.file) {
+      if (category.image?.public_id) {
+        try {
+          await cloudinary.uploader.destroy(category.image.public_id);
+        } catch {
+          /* ignore */
+        }
+      }
       updateData.image = {
         url: req.file.path,
-        public_id: req.file.filename
+        public_id: req.file.filename,
       };
     }
 
-    /* ===========================
-       ✅ UPDATE CATEGORY
-    ============================ */
     const updatedCategory = await Category.findByIdAndUpdate(categoryId, updateData, {
       new: true,
-      runValidators: true
+      runValidators: true,
     });
 
-    if (!updatedCategory) {
-      return res.status(404).json({ message: "Category not found" });
-    }
-
     return res.status(200).json({ success: true, category: updatedCategory });
-
   } catch (err) {
     console.error("updateCategory:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
-// 🔹 Get All Categories (with pagination + search + status filter)
+
 export const getAllCategories = async (req, res) => {
   try {
-    const page = parseInt(req.query.page || 1);
-    const limit = parseInt(req.query.limit || 10);
+    const page = parseInt(req.query.page || 1, 10);
+    const limit = parseInt(req.query.limit || 10, 10);
     const status = req.query.status;
     const search = req.query.search;
+    const tree = req.query.tree === "true" || req.query.tree === "1";
+    const all = req.query.all === "true" || req.query.all === "1" || tree;
 
     const filter = {};
     if (status) filter.status = status;
     if (search) filter.name = { $regex: search, $options: "i" };
 
+    if (all) {
+      const categories = await Category.find(filter)
+        .populate("parentCategory", "name mrCategoryId")
+        .sort({ name: 1 });
+
+      const payload = {
+        success: true,
+        total: categories.length,
+        categories,
+      };
+
+      if (tree) {
+        payload.tree = buildTree(categories);
+      }
+
+      return res.json(payload);
+    }
+
     const total = await Category.countDocuments(filter);
     const categories = await Category.find(filter)
+      .populate("parentCategory", "name mrCategoryId")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -228,10 +235,12 @@ export const getAllCategories = async (req, res) => {
   }
 };
 
-// 🔹 Get single Category
 export const getCategoryById = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.categoryId);
+    const category = await Category.findById(req.params.categoryId).populate(
+      "parentCategory",
+      "name mrCategoryId"
+    );
     if (!category) return res.status(404).json({ message: "Category not found" });
 
     res.json({ success: true, category });
@@ -241,18 +250,26 @@ export const getCategoryById = async (req, res) => {
   }
 };
 
-// 🔹 Delete Category
 export const deleteCategory = async (req, res) => {
   try {
     const category = await Category.findById(req.params.categoryId);
     if (!category) return res.status(404).json({ message: "Category not found" });
 
-    if (!req.user.roles.includes(USER_ROLE.SUPER_ADMIN) && category.createdBy.toString() !== req.user._id.toString()) {
+    if (
+      !req.user.roles.includes(USER_ROLE.SUPER_ADMIN) &&
+      category.createdBy?.toString() !== req.user._id.toString()
+    ) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // Delete image from Cloudinary
-    if (category.image && category.image.public_id) {
+    const childCount = await Category.countDocuments({ parentCategory: category._id });
+    if (childCount > 0) {
+      return res.status(400).json({
+        message: `Cannot delete — this category has ${childCount} child categor${childCount === 1 ? "y" : "ies"}. Reassign or delete children first.`,
+      });
+    }
+
+    if (category.image?.public_id) {
       await cloudinary.uploader.destroy(category.image.public_id);
     }
 
