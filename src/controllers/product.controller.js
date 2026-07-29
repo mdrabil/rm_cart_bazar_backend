@@ -13,7 +13,7 @@ const createProductSchema = Joi.object({
   store: Joi.string().required(),
   name: Joi.string().required(),
   category: Joi.string().required(),
-  subCategory: Joi.string().optional(),
+  subCategory: Joi.string().allow("", null).optional(),
   description: Joi.string().allow(""),
   shortDesc: Joi.string().allow(""),
   label: Joi.string().optional(),
@@ -90,6 +90,16 @@ if (req.body.variants && typeof req.body.variants === "string") {
 
     const { error, value } = createProductSchema.validate(req.body);
     if (error) return res.status(400).json({ message: error.details[0].message });
+
+    // Never cast empty string to ObjectId
+    if (
+      !value.subCategory ||
+      value.subCategory === "" ||
+      value.subCategory === "null" ||
+      value.subCategory === "undefined"
+    ) {
+      delete value.subCategory;
+    }
 
     // 🔹 Store check
     const store = await Store.findById(value.store);
@@ -334,19 +344,20 @@ export const updateProduct = async (req, res) => {
     // 🔄 UPDATE OTHER FIELDS
     // ==============================
 if (
-  !value.subCategory ||
+  value.subCategory === undefined ||
   value.subCategory === "" ||
-  value.subCategory === "null"
+  value.subCategory === "null" ||
+  value.subCategory === "undefined"
 ) {
   value.subCategory = null;
 }
 
 if (
-  !value.category ||
   value.category === "" ||
-  value.category === "null"
+  value.category === "null" ||
+  value.category === "undefined"
 ) {
-  value.category = null;
+  value.category = undefined;
 }
     Object.assign(product, value);
 

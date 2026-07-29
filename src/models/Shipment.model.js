@@ -35,7 +35,7 @@ const pickupSchema = new mongoose.Schema(
       enum: Object.values(PICKUP_SOURCE),
       default: PICKUP_SOURCE.MANUAL,
     },
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store" },
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store",default: null },
     mrStoreId: String,
     locationId: String,
     providerPickupId: String,

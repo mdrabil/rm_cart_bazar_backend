@@ -185,6 +185,7 @@ const productSchema = new mongoose.Schema(
       type:    mongoose.Schema.Types.ObjectId,
       ref:     "Category",
       default: null,
+      set: (v) => (v === "" || v === "null" || v === "undefined" ? null : v),
     },
 
     name: {

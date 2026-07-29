@@ -25,6 +25,15 @@ const parseJSON = (val) => {
   return val;
 };
 
+/** Empty / invalid ObjectId strings → null (avoids BSON cast errors). */
+const normalizeOptionalObjectId = (val) => {
+  if (val === undefined) return undefined;
+  if (val === null || val === "" || val === "null" || val === "undefined") {
+    return null;
+  }
+  return val;
+};
+
 // =============================================================================
 // VALIDATION SCHEMA (createProduct)
 // =============================================================================
@@ -34,7 +43,7 @@ const createProductSchema = Joi.object({
   name:     Joi.string().required(),
   category: Joi.string().required(),
 
-  subCategory:      Joi.string().allow("", null),
+  subCategory:      Joi.string().allow("", null).optional(),
   label:            Joi.string().allow(""),
   description:      Joi.string().allow(""),
   shortDesc: Joi.string().allow(""),
@@ -111,6 +120,12 @@ delete req.body.layerIds; // remove before validate()
 const { error, value } = createProductSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ success: false, message: error.details[0].message });
+    }
+
+    // Normalize optional ObjectIds before mongoose cast
+    value.subCategory = normalizeOptionalObjectId(value.subCategory) ?? null;
+    if (value.subCategory === null) {
+      delete value.subCategory; // omit empty — schema default null
     }
 
     // ── Store check ───────────────────────────────────────────────────────────
@@ -408,13 +423,12 @@ const oldVariants = JSON.parse(JSON.stringify(product.variants));
 
     // ── Category / subCategory ────────────────────────────────────────────────
 
-    const parseObjectIdSafe = (val) => (!val || val === "" ? null : val);
-
     if (value.category !== undefined) {
-      product.category = parseObjectIdSafe(value.category);
+      product.category = normalizeOptionalObjectId(value.category);
     }
     if (value.subCategory !== undefined) {
-      product.subCategory = parseObjectIdSafe(value.subCategory);
+      // "" / "null" → null so nested-category products clear legacy subCategory
+      product.subCategory = normalizeOptionalObjectId(value.subCategory);
     }
 
     // ── Scalar fields ─────────────────────────────────────────────────────────
