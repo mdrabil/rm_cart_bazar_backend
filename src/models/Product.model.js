@@ -181,12 +181,9 @@ const productSchema = new mongoose.Schema(
       index:    true,
     },
 
-    subCategory: {
-      type:    mongoose.Schema.Types.ObjectId,
-      ref:     "Category",
-      default: null,
-      set: (v) => (v === "" || v === "null" || v === "undefined" ? null : v),
-    },
+    // REMOVED: subCategory — unlimited nesting uses Category.parentCategory;
+    // Product.category stores the selected leaf node only.
+    // Legacy data: run `node src/seeders/migrateProductSubCategory.js`
 
     name: {
       type:     String,
@@ -329,5 +326,6 @@ productSchema.pre("save", function (next) {
 
 productSchema.index({ status: 1, createdAt: -1 });
 productSchema.index({ store: 1, status: 1 });
+productSchema.index({ category: 1, status: 1 });
 
 export default mongoose.model("Product", productSchema);

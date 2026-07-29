@@ -114,7 +114,8 @@ export const expandCategoryIdsWithDescendants = async (categoryIds = []) => {
 };
 
 /**
- * Mongo filter: product.category OR product.subCategory in expanded ID set.
+ * Mongo filter: product.category in expanded ID set (leaf assignment).
+ * Also matches legacy product.subCategory for DBs not yet migrated.
  * Scope is selected node(s) + downward descendants only.
  */
 export const buildProductCategoryMatchFilter = async (categoryIds = []) => {
@@ -124,6 +125,40 @@ export const buildProductCategoryMatchFilter = async (categoryIds = []) => {
   }
 
   return {
-    $or: [{ category: { $in: ids } }, { subCategory: { $in: ids } }],
+    $or: [
+      { category: { $in: ids } },
+      // Legacy only — safe after migrateProductSubCategory.js (field absent)
+      { subCategory: { $in: ids } },
+    ],
   };
+};
+
+/**
+ * Build breadcrumb path for a leaf category via parentCategory recursion.
+ * Returns [{ _id, name }, ...] from root → leaf.
+ */
+export const getCategoryBreadcrumb = async (categoryId) => {
+  if (!categoryId || !mongoose.Types.ObjectId.isValid(categoryId)) return [];
+
+  const all = await CategoryModel.find({})
+    .select("_id name parentCategory")
+    .lean();
+
+  const byId = new Map(all.map((c) => [String(c._id), c]));
+  const parts = [];
+  let current = byId.get(String(categoryId));
+  const guard = new Set();
+
+  while (current) {
+    const id = String(current._id);
+    if (guard.has(id)) break;
+    guard.add(id);
+    parts.unshift({ _id: current._id, name: current.name });
+    const parentId = current.parentCategory
+      ? String(current.parentCategory)
+      : null;
+    current = parentId ? byId.get(parentId) : null;
+  }
+
+  return parts;
 };

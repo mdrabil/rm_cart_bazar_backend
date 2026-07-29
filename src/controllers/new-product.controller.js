@@ -43,6 +43,7 @@ const createProductSchema = Joi.object({
   name:     Joi.string().required(),
   category: Joi.string().required(),
 
+  // Accepted for backward-compat FormData; ignored — leaf lives in `category`
   subCategory:      Joi.string().allow("", null).optional(),
   label:            Joi.string().allow(""),
   description:      Joi.string().allow(""),
@@ -122,11 +123,8 @@ const { error, value } = createProductSchema.validate(req.body);
       return res.status(400).json({ success: false, message: error.details[0].message });
     }
 
-    // Normalize optional ObjectIds before mongoose cast
-    value.subCategory = normalizeOptionalObjectId(value.subCategory) ?? null;
-    if (value.subCategory === null) {
-      delete value.subCategory; // omit empty — schema default null
-    }
+    // Ignore legacy subCategory — Product stores leaf in `category` only
+    delete value.subCategory;
 
     // ── Store check ───────────────────────────────────────────────────────────
 
@@ -231,6 +229,12 @@ layerIdList.forEach((id, i) => {
     // ── Save ──────────────────────────────────────────────────────────────────
 
     await product.save();
+
+    // Drop legacy subCategory key if present on older documents
+    await Product.collection.updateOne(
+      { _id: product._id, subCategory: { $exists: true } },
+      { $unset: { subCategory: "" } }
+    );
 
     return res.status(201).json({
       success: true,
@@ -421,14 +425,10 @@ const oldVariants = JSON.parse(JSON.stringify(product.variants));
       product.markModified("customization");
     }
 
-    // ── Category / subCategory ────────────────────────────────────────────────
+    // ── Category (leaf only; unlimited nesting via Category.parentCategory) ───
 
     if (value.category !== undefined) {
       product.category = normalizeOptionalObjectId(value.category);
-    }
-    if (value.subCategory !== undefined) {
-      // "" / "null" → null so nested-category products clear legacy subCategory
-      product.subCategory = normalizeOptionalObjectId(value.subCategory);
     }
 
     // ── Scalar fields ─────────────────────────────────────────────────────────
@@ -455,9 +455,11 @@ const oldVariants = JSON.parse(JSON.stringify(product.variants));
 
     await product.save();
 
-    // await product.save();
-
-// Check stock changes
+    // Drop legacy subCategory key if present on older documents
+    await Product.collection.updateOne(
+      { _id: product._id, subCategory: { $exists: true } },
+      { $unset: { subCategory: "" } }
+    );
 for (const variant of product.variants) {
   const oldVariant = oldVariants.find(
     (v) => v._id.toString() === variant._id.toString()

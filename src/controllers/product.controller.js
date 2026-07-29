@@ -6,13 +6,14 @@ import { USER_ROLE, PRODUCT_STATUS } from "../constants/enums.js";
 import cloudinary from "../config/cloudinaryConfig.js";
 import { generateProductSlug } from "../utils/mrId.js";
 import { buildStoreFilter } from "../utils/accessHelper.js";
-import { buildProductCategoryMatchFilter } from "../utils/categoryScope.js";
+import { buildProductCategoryMatchFilter, getCategoryBreadcrumb } from "../utils/categoryScope.js";
 
 // 🔹 Joi Validation Schemas
 const createProductSchema = Joi.object({
   store: Joi.string().required(),
   name: Joi.string().required(),
   category: Joi.string().required(),
+  // Legacy FormData key — ignored (leaf category only)
   subCategory: Joi.string().allow("", null).optional(),
   description: Joi.string().allow(""),
   shortDesc: Joi.string().allow(""),
@@ -91,15 +92,8 @@ if (req.body.variants && typeof req.body.variants === "string") {
     const { error, value } = createProductSchema.validate(req.body);
     if (error) return res.status(400).json({ message: error.details[0].message });
 
-    // Never cast empty string to ObjectId
-    if (
-      !value.subCategory ||
-      value.subCategory === "" ||
-      value.subCategory === "null" ||
-      value.subCategory === "undefined"
-    ) {
-      delete value.subCategory;
-    }
+    // Never cast empty string to ObjectId; ignore legacy subCategory writes
+    delete value.subCategory;
 
     // 🔹 Store check
     const store = await Store.findById(value.store);
@@ -343,14 +337,7 @@ export const updateProduct = async (req, res) => {
     // ==============================
     // 🔄 UPDATE OTHER FIELDS
     // ==============================
-if (
-  value.subCategory === undefined ||
-  value.subCategory === "" ||
-  value.subCategory === "null" ||
-  value.subCategory === "undefined"
-) {
-  value.subCategory = null;
-}
+    delete value.subCategory; // leaf lives in category only
 
 if (
   value.category === "" ||
@@ -432,11 +419,17 @@ export const deleteProduct = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const { productId } = req.params;
-    const product = await Product.findById(productId).populate('store').populate('category').populate("subCategory").lean();
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ success: false, message: "Invalid product id" });
+    }
+    const product = await Product.findById(productId).populate('store').populate('category').lean();
     if (!product) return res.status(404).json({ message: "Product not found" });
 
+    const categoryPath = await getCategoryBreadcrumb(
+      product.category?._id || product.category
+    );
 
-    res.json({ success: true, product });
+    res.json({ success: true, product: { ...product, categoryPath } });
   } catch (err) {
     console.error("getProductById:", err);
     res.status(500).json({ message: "Server error" });
@@ -567,7 +560,6 @@ export const getAllProducts = async (req, res) => {
     const products = await Product.find(finalFilter)
        .populate("store", "storeName mrStoreId")
       .populate("category", "name")
-      .populate("subCategory", "name")
       .skip((page - 1) * limit)
       .limit(limit)
       .sort({ createdAt: -1 });

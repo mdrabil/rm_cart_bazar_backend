@@ -9,7 +9,8 @@
     "dev": "nodemon index.js",
     "seed": "node src/seeders/initSeeder.js",
     "seed:gateways": "node -e \"import('dotenv').then(d=>d.config()); import('mongoose').then(async m=>{ await m.default.connect(process.env.MONGO_URI); const {seedPaymentGateways}=await import('./src/seeders/paymentGatewaySeeder.js'); await seedPaymentGateways(); process.exit(0); })\"",
-    "migrate:rm-to-mr": "node src/migrations/renameRmToMr.js"
+    "migrate:rm-to-mr": "node src/migrations/renameRmToMr.js",
+    "migrate:product-subcategory": "node src/seeders/migrateProductSubCategory.js"
   },
   "engines": {
     "node": ">=18.0.0"

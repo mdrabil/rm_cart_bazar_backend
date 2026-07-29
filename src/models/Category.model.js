@@ -98,8 +98,10 @@ const categorySchema = new mongoose.Schema(
 
 categorySchema.index({ name: 1 });
 categorySchema.index({ createdAt: -1 });
+categorySchema.index({ parentCategory: 1 });
+categorySchema.index({ status: 1, isActive: 1 });
 
-/* 🔥 UNIQUE CATEGORY UNDER SAME PARENT */
+/* UNIQUE CATEGORY UNDER SAME PARENT */
 categorySchema.index(
   { name: 1, parentCategory: 1 },
   { unique: true }

@@ -5,7 +5,7 @@ import CouponUsageModel from "../../models/CouponUsage.model.js";
 import ProductModel from "../../models/Product.model.js";
 import ReviewModel from "../../models/Review.model.js";
 import ProductNotify from "../../models/ProductNotify.model.js";
-import { buildProductCategoryMatchFilter } from "../../utils/categoryScope.js";
+import { buildProductCategoryMatchFilter, getCategoryBreadcrumb } from "../../utils/categoryScope.js";
 
 
 
@@ -13,7 +13,7 @@ import { buildProductCategoryMatchFilter } from "../../utils/categoryScope.js";
 export const getProductById = async (req, res) => {
   try {
     const { productId } = req.params;
-    const product = await ProductModel.findById(productId).populate('category').populate("subCategory").lean();
+    const product = await ProductModel.findById(productId).populate('category').lean();
     if (!product) return res.status(404).json({ message: "Product not found" });
 
 
@@ -539,11 +539,10 @@ export const getAllProducts2 = async (req, res) => {
       // product data
       ProductModel.find(filter)
         .select(`
-          _id mrProductId name slug description shortDesc category subCategory 
+          _id mrProductId name slug description shortDesc category 
           variants gstPercent status images thumbnails createdAt label totalReviews
         `)
         .populate("category", "name")
-        .populate("subCategory", "name")
         .lean()
         .sort(sortObj)
         .skip((pageNumber - 1) * limitNumber)
@@ -596,7 +595,6 @@ export const getAllProducts2 = async (req, res) => {
       shortDesc: p.shortDesc,
       category: p.category,
       label: p.label,
-      subCategory: p.subCategory,
       variants: p.variants,
       gstPercent: p.gstPercent,
       status: p.status,
@@ -771,7 +769,6 @@ if (sortBy) {
       shortDesc: p.shortDesc,
       category: p.category,
       label: p.label,
-      subCategory: p.subCategory,
       variants: p.variants,
       gstPercent: p.gstPercent,
       customization:p.customization,
@@ -1234,11 +1231,11 @@ export const getSingleProductDetails = async (req, res) => {
     }
 
     // ================= PRODUCT FETCH =================
+    const escapedSlug = String(slug).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const product = await ProductModel.findOne({
-      slug: { $regex: `^${slug}$`, $options: "i" },
+      slug: { $regex: `^${escapedSlug}$`, $options: "i" },
     })
       .populate("category", "name")
-      .populate("subCategory", "name")
       .populate("store", "name")
       .lean();
 
@@ -1248,6 +1245,10 @@ export const getSingleProductDetails = async (req, res) => {
         message: "Product not found",
       });
     }
+
+    const categoryPath = await getCategoryBreadcrumb(
+      product.category?._id || product.category
+    );
 
     // ================= REVIEWS FETCH =================
     const reviews = await ReviewModel.find({ product: product._id })
@@ -1310,7 +1311,7 @@ export const getSingleProductDetails = async (req, res) => {
   description: product.description,
 customization:product?.customization || {},
   category: product.category,
-  subCategory: product.subCategory,
+  categoryPath,
 
   // store: product.store,
 

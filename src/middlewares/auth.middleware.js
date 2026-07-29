@@ -47,27 +47,25 @@ export const authMiddleware = async (req, res, next) => {
     }
 
     /* ================= ROLE VALIDATION ================= */
-  const roleNames = (user.roles || []).map(r =>
-  r.role?.trim().toUpperCase()
-);
+    const roleNames = (user.roles || []).map(r =>
+      r.role?.trim().toUpperCase()
+    );
 
-console.log("get the rolesname in auth",roleNames)
+    const roleIds = user.roles?.map(r => r._id) || [];
 
-const roleIds = user.roles?.map(r => r._id) || [];
+    if (!roleNames.length) {
+      return res.status(403).json({
+        success: false,
+        message: "User has no roles assigned"
+      });
+    }
 
-if (!roleNames.length) {
-  return res.status(403).json({
-    success: false,
-    message: "User has no roles assigned"
-  });
-}
-
-req.user = {
-  ...user,
-  _id: user._id,
-  roles: roleNames, // CLEAN ROLES
-  roleIds
-};
+    req.user = {
+      ...user,
+      _id: user._id,
+      roles: roleNames, // CLEAN ROLES
+      roleIds
+    };
 
 
     return next();
