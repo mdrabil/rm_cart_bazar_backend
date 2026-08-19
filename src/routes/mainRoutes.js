@@ -39,6 +39,7 @@ import AppVersionRoutes from "./appVersion.routes.js";
 import Maintenance from "./maintenance.routes.js";
 import trafficRoutes from "../routes/trafficRoutes.js";
 import messageProviderRoutes from "../routes/admin/messageProvider.routes.js";
+import siteSettingsRoutes from "../routes/siteSetting.routes.js";
 
 
 
@@ -53,6 +54,7 @@ router.use("/public/products", publicProductRoutes);
 router.use("/public/coupon", publicProductRoutes);
 router.use("/customer/orders", customerOrdersRoutes);
 router.use("/customer/wishlist", wishListRoutes);
+router.use("/site/settings", siteSettingsRoutes);
 router.use("/blogs", blogsRoutes);
 router.use("/payment", paymentRoutes);
 router.use("/shipping", shippingPublicRoutes);

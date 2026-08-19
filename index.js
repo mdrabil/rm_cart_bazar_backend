@@ -193,7 +193,7 @@ Payment.startRetryWorker(60_000);
 app.use("/api", apiLimiter, routes);
 
 // Health Check
-app.get("/", (req, res) => {
+app.get("/health", (req, res) => {
   res.json({
     success: true,
     message: "API is running 🚀",
