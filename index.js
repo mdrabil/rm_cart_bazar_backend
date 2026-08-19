@@ -190,7 +190,8 @@ connectDB();
 Payment.startRetryWorker(60_000);
 
 // Routes
-app.use("/api", apiLimiter, routes);
+// app.use("/api", apiLimiter, routes);
+app.use("/api", routes);
 
 // Health Check
 app.get("/health", (req, res) => {
